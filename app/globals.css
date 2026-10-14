@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f6f3ee;
+  --color-sand: #e8e2d8;
+  --color-ink: #121212;
+  --color-muted: #8b867f;
+  --color-line: #e7e1d7;
+
+  /* 블록 색 — 위에는 항상 검정 글씨 */
+  --color-coral: #f4625a;
+  --color-ocean: #3a82f7;
+  --color-mint: #3dbf6e;
+  --color-grape: #c2b0f4;
+  --color-berry: #f59ac0;
+  --color-honey: #ffc830;
+  --color-leaf: #f7961f;
+
+  /* 흰 바탕 위 글씨용 진한 톤 */
+  --color-coral-ink: #de4038;
+  --color-ocean-ink: #2463d6;
+  --color-mint-ink: #1d9a4f;
+  --color-grape-ink: #6d4fd6;
+
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", sans-serif;
+
+  --animate-pop: pop 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+  --animate-rise: rise 0.35s ease-out;
+  --animate-float: float 3.4s ease-in-out infinite;
+
+  @keyframes pop {
+    0% { transform: scale(0.92); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes rise {
+    0% { transform: translateY(8px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+    50% { transform: translateY(-6px) rotate(var(--r, 0deg)); }
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-sand);
+  background-image:
+    linear-gradient(rgba(18, 18, 18, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 18, 18, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+  color: var(--color-ink);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  letter-spacing: -0.01em;
+}
+
+/* 화면 안쪽 모눈 */
+.grid-paper {
+  background-image:
+    linear-gradient(rgba(18, 18, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 18, 18, 0.045) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+/* 오브젝트 스티커 그림자 */
+.sticker {
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.18));
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
