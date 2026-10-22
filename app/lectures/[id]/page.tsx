@@ -235,10 +235,12 @@ export default function LectureDetail() {
         </Step>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-paper via-paper to-transparent px-5 pb-7 pt-8">
-        <Button size="lg" icon="play" className="w-full" onClick={() => begin()}>
-          강의 시작하기
-        </Button>
+      <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-paper via-paper to-transparent pb-7 pt-8">
+        <div className="mx-auto px-5 md:max-w-3xl">
+          <Button size="lg" icon="play" className="w-full" onClick={() => begin()}>
+            강의 시작하기
+          </Button>
+        </div>
       </div>
 
       <QrModal open={qrOpen} onClose={() => setQrOpen(false)} code={lecture.code} title={lecture.title} />

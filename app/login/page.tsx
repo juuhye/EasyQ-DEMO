@@ -21,7 +21,7 @@ export default function Login() {
   }
 
   return (
-    <Screen>
+    <Screen width="narrow">
       <TopBar back="/" />
       <form onSubmit={submit} className="flex flex-1 flex-col px-6">
         <div className="pt-4">

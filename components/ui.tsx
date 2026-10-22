@@ -3,25 +3,84 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Avatar } from "./Brand";
+import { Avatar, Logo } from "./Brand";
 import { Icon, type IconName } from "./Icon";
 import { useDemo } from "@/lib/store";
 
 // ── 화면 틀 ───────────────────────────────────────
 
-// 모바일 웹 우선: 데스크톱에서는 가운데 폰 크기 화면으로 보여준다.
-export function Screen({ children, className = "", nav = false, dark = false, grid = true }: { children: React.ReactNode; className?: string; nav?: boolean; dark?: boolean; grid?: boolean }) {
+const screenWidths = { narrow: "md:max-w-md", default: "md:max-w-3xl", wide: "md:max-w-6xl" };
+
+// 반응형: 모바일은 폰 화면 그대로, 데스크톱(md~)은 전체 화면 + 가운데 본문 폭 + 상단 내비게이션.
+export function Screen({
+  children,
+  className = "",
+  nav = false,
+  dark = false,
+  grid = true,
+  width = "default",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  nav?: boolean;
+  dark?: boolean;
+  grid?: boolean;
+  width?: keyof typeof screenWidths;
+}) {
   return (
-    <div className="flex min-h-dvh items-center justify-center md:py-8">
+    <div className="flex min-h-dvh items-center justify-center">
       <div
-        className={`relative flex h-dvh w-full max-w-[440px] flex-col overflow-hidden md:h-[min(900px,calc(100dvh-4rem))] md:rounded-[52px] md:border-[10px] md:border-ink md:shadow-2xl ${
-          dark ? "bg-ink text-white" : `bg-paper ${grid ? "grid-paper" : ""}`
-        } ${className}`}
+        className={`relative flex h-dvh w-full max-w-[440px] flex-col overflow-hidden md:max-w-none ${dark ? "bg-ink text-white" : `bg-paper ${grid ? "grid-paper" : ""}`} ${className}`}
       >
-        <div className={`no-scrollbar flex flex-1 flex-col overflow-y-auto ${nav ? "pb-28" : ""}`}>{children}</div>
+        {nav && <TopNav dark={dark} />}
+        <div className={`no-scrollbar flex flex-1 flex-col overflow-y-auto ${nav ? "pb-28 md:pb-10" : ""}`}>
+          <div className={`mx-auto flex w-full flex-1 flex-col ${screenWidths[width]}`}>{children}</div>
+        </div>
         {nav && <BottomNav />}
       </div>
     </div>
+  );
+}
+
+// 데스크톱 상단 내비게이션 (모바일에서는 BottomNav)
+function TopNav({ dark }: { dark: boolean }) {
+  const path = usePathname();
+  const { name } = useDemo();
+  return (
+    <header className={`z-30 hidden shrink-0 border-b md:block ${dark ? "border-white/10" : "border-line bg-paper/90 backdrop-blur"}`}>
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-6">
+        <Link href="/home" aria-label="홈">
+          <Logo light={dark} className="text-[22px]" />
+        </Link>
+        <nav className="flex flex-1 items-center gap-1">
+          {navItems.map((item) => {
+            const active = path.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors ${
+                  active ? (dark ? "bg-white text-ink" : "bg-ink text-white") : dark ? "text-white/55 hover:text-white" : "text-ink/50 hover:text-ink"
+                }`}
+              >
+                <Icon name={item.icon} size={17} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <Link
+          href="/me"
+          aria-label="내 정보"
+          className={`flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-semibold transition-colors ${
+            path.startsWith("/me") ? (dark ? "bg-white text-ink" : "bg-ink text-white") : dark ? "bg-white/10 hover:bg-white/15" : "bg-white hover:bg-white/80"
+          }`}
+        >
+          <Avatar name={name} size={32} className="!ring-0" />
+          {name}
+        </Link>
+      </div>
+    </header>
   );
 }
 
@@ -37,7 +96,7 @@ export function BottomNav() {
   const path = usePathname();
   const { name } = useDemo();
   return (
-    <nav className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center gap-2 bg-gradient-to-t from-paper via-paper/80 to-transparent px-4 pb-6 pt-8">
+    <nav className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex md:hidden justify-center gap-2 bg-gradient-to-t from-paper via-paper/80 to-transparent px-4 pb-6 pt-8">
       <ul className="pointer-events-auto flex items-center gap-1 rounded-full bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.10)]">
         {navItems.map((item) => {
           const active = path.startsWith(item.href);

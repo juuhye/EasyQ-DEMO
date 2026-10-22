@@ -55,7 +55,7 @@ export default function Join() {
 
       {step === "code" && (
         <div className="flex flex-1 flex-col px-5 pt-6">
-          <button onClick={scan} className="relative flex aspect-[1/0.9] w-full items-center justify-center overflow-hidden rounded-[30px] bg-ink">
+          <button onClick={scan} className="relative flex aspect-[1/0.9] w-full md:aspect-[16/8] items-center justify-center overflow-hidden rounded-[30px] bg-ink">
             {["left-6 top-6 border-l-[3px] border-t-[3px] rounded-tl-2xl", "right-6 top-6 border-r-[3px] border-t-[3px] rounded-tr-2xl", "bottom-6 left-6 border-b-[3px] border-l-[3px] rounded-bl-2xl", "bottom-6 right-6 border-b-[3px] border-r-[3px] rounded-br-2xl"].map((c) => (
               <span key={c} className={`absolute h-10 w-10 border-white/80 ${c}`} />
             ))}

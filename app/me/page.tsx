@@ -59,7 +59,7 @@ export default function Me() {
         </div>
 
         <p className="mb-3 mt-8 text-[19px] font-bold tracking-[-0.03em]">배지 보관함</p>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-2 md:max-w-md md:gap-3">
           {[
             ["🏅", "첫 질문"],
             ["🔥", "4주 연속"],

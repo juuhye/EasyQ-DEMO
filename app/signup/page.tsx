@@ -38,7 +38,7 @@ export default function Signup() {
 
   if (step === "sent")
     return (
-      <Screen>
+      <Screen width="narrow">
         {toast.node}
         <TopBar back="/" />
         <div className="flex flex-1 flex-col items-center px-8 pt-10 text-center">
@@ -64,7 +64,7 @@ export default function Signup() {
     );
 
   return (
-    <Screen>
+    <Screen width="narrow">
       <TopBar back="/" title="회원가입" />
       <form onSubmit={submit} className="flex flex-1 flex-col px-6 pb-10">
         <h1 className="pt-2 text-[40px] font-extrabold leading-[1.05] tracking-[-0.05em]">

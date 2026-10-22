@@ -4,8 +4,8 @@ import { Button, Screen } from "@/components/ui";
 
 export default function Splash() {
   return (
-    <Screen>
-      <div className="flex flex-1 flex-col px-5 pb-8 pt-10">
+    <Screen width="wide">
+      <div className="flex flex-1 flex-col px-5 pb-8 pt-10 md:px-8 md:pb-12">
         <div className="flex items-center justify-between">
           <Logo className="text-[22px]" />
           <span className="text-right text-sm leading-tight">
@@ -16,58 +16,60 @@ export default function Splash() {
           </span>
         </div>
 
-        <h1 className="mt-10 text-[34px] font-bold leading-[1.22] tracking-[-0.045em] text-ink/35">
-          손 들기 애매한 질문,
-          <br />
-          <span className="text-ink">
-            QR 찍고 <Sticker size={30} rotate={-8}>📱</Sticker> 바로
-          </span>
-          <br />
-          <span className="text-ink">물어보세요.</span> AI가
-          <br />
-          먼저 <span className="text-ink">답해줄게요</span> <Sticker size={30} rotate={10}>✨</Sticker>
-        </h1>
+        <div className="flex flex-1 flex-col lg:grid lg:grid-cols-[1.15fr_1fr] lg:grid-rows-[auto_auto] lg:content-center lg:gap-x-16">
+          <h1 className="mt-10 text-[34px] font-bold leading-[1.22] tracking-[-0.045em] text-ink/35 md:text-[48px] lg:col-start-1 lg:row-start-1 lg:mt-0 lg:self-end lg:text-[56px]">
+            손 들기 애매한 질문,
+            <br />
+            <span className="text-ink">
+              QR 찍고 <Sticker size={30} rotate={-8} className="md:text-[44px]!">📱</Sticker> 바로
+            </span>
+            <br />
+            <span className="text-ink">물어보세요.</span> AI가
+            <br />
+            먼저 <span className="text-ink">답해줄게요</span> <Sticker size={30} rotate={10} className="md:text-[44px]!">✨</Sticker>
+          </h1>
 
-        {/* 시안의 Chats 말풍선 */}
-        <div className="relative mt-8 space-y-1">
-          <Bubble tone="coral" className="z-30 mr-8 animate-rise">
-            <div className="flex items-center gap-3">
-              <Avatar name="민" size={40} />
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-bold">
-                  익명의 청중 <span className="text-xs font-normal text-ink/55">14:21</span>
-                </p>
-                <p className="truncate text-sm text-ink/80">포지셔널 인코딩은 왜 sin/cos를 써요?</p>
+          {/* 시안의 Chats 말풍선 */}
+          <div className="relative mt-8 space-y-1 md:mx-auto md:w-full md:max-w-lg lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:self-center">
+            <Bubble tone="coral" className="z-30 mr-8 animate-rise">
+              <div className="flex items-center gap-3">
+                <Avatar name="민" size={40} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-bold">
+                    익명의 청중 <span className="text-xs font-normal text-ink/55">14:21</span>
+                  </p>
+                  <p className="truncate text-sm text-ink/80">포지셔널 인코딩은 왜 sin/cos를 써요?</p>
+                </div>
+                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-ink px-1.5 text-xs font-bold text-white">23</span>
               </div>
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-ink px-1.5 text-xs font-bold text-white">23</span>
-            </div>
-          </Bubble>
-          <Bubble tone="honey" tail="right" className="z-20 ml-8 animate-rise [animation-delay:120ms]">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-lg text-white">✦</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-bold">
-                  AI 답변 <span className="text-xs font-normal text-ink/55">교안 14p 근거</span>
-                </p>
-                <p className="truncate text-sm text-ink/80">순서 정보를 더해주기 위해서예요…</p>
+            </Bubble>
+            <Bubble tone="honey" tail="right" className="z-20 ml-8 animate-rise [animation-delay:120ms]">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-lg text-white">✦</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-bold">
+                    AI 답변 <span className="text-xs font-normal text-ink/55">교안 14p 근거</span>
+                  </p>
+                  <p className="truncate text-sm text-ink/80">순서 정보를 더해주기 위해서예요…</p>
+                </div>
               </div>
-            </div>
-          </Bubble>
-        </div>
+            </Bubble>
+          </div>
 
-        <div className="mt-auto space-y-2.5 pt-10">
-          <Button href="/join" size="lg" icon="qr" className="w-full">
-            입장 코드로 참여하기
-          </Button>
-          <Button href="/login" variant="white" size="lg" className="w-full">
-            로그인
-          </Button>
-          <p className="pt-2 text-center text-sm text-muted">
-            처음이신가요?{" "}
-            <Link href="/signup" className="font-semibold text-ink underline underline-offset-4">
-              회원가입
-            </Link>
-          </p>
+          <div className="mt-auto space-y-2.5 pt-10 md:mx-auto md:w-full md:max-w-md lg:col-start-1 lg:row-start-2 lg:mx-0 lg:mt-0 lg:self-start">
+            <Button href="/join" size="lg" icon="qr" className="w-full">
+              입장 코드로 참여하기
+            </Button>
+            <Button href="/login" variant="white" size="lg" className="w-full">
+              로그인
+            </Button>
+            <p className="pt-2 text-center text-sm text-muted">
+              처음이신가요?{" "}
+              <Link href="/signup" className="font-semibold text-ink underline underline-offset-4">
+                회원가입
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </Screen>

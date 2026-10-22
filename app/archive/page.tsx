@@ -42,7 +42,7 @@ export default function Archive() {
             </Button>
           </Empty>
         ) : (
-          <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-7">
+          <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-7 md:grid-cols-3 md:gap-x-6">
             {items.map((a, i) => (
               <Link key={a.id} href={`/archive/${a.id}`} className="group block animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
                 <Folder
