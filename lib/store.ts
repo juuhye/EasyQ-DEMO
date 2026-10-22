@@ -11,6 +11,11 @@ type DemoState = {
   endedLectures: string[];
   created: { id: string; title: string; date: string; time: string; desc: string } | null;
   guestName: string | null;
+  // 관리자 웹
+  admin: string | null;
+  servingVersion: string;
+  retrained: boolean;
+  labelDecisions: Record<string, "approve" | "flip" | "exclude">;
 };
 
 let state: DemoState = {
@@ -20,6 +25,10 @@ let state: DemoState = {
   endedLectures: [],
   created: null,
   guestName: null,
+  admin: null,
+  servingVersion: "v1.1",
+  retrained: false,
+  labelDecisions: {},
 };
 
 const listeners = new Set<() => void>();

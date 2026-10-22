@@ -54,6 +54,11 @@ export default function Login() {
               회원가입
             </Link>
           </p>
+          <p className="text-center text-xs text-muted">
+            <Link href="/admin/login" className="underline underline-offset-4">
+              관리자 로그인
+            </Link>
+          </p>
         </div>
       </form>
     </Screen>
