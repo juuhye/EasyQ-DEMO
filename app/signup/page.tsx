@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Field, Screen, TopBar, inputCls, useToast } from "@/components/ui";
+import { setDemo } from "@/lib/store";
 
 const rules = [
   { label: "8자 이상", test: (p: string) => p.length >= 8 },
@@ -35,6 +36,8 @@ export default function Signup() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (email === "juhye@gachon.ac.kr") return setEmailError("이미 가입된 이메일이에요.");
+    // 동의는 계정 단위로 저장하고, 입장할 때 다시 묻지 않는다
+    setDemo({ consent: { keep: true, learn: !!agree.learn } });
     setStep("sent");
   }
 
@@ -126,7 +129,7 @@ export default function Signup() {
             </button>
           ))}
           <p className="mt-3 rounded-2xl bg-paper p-3 text-xs leading-relaxed text-muted">
-            음성 원본은 저장하지 않아요. 세션 데이터는 보유 기간이 지나면 자동으로 지워지고, 학습에는 개인정보를 뺀 익명 데이터만 써요. 여기서 동의한 내용은 강의에 입장할 때마다 다시 묻지 않아요.
+            음성 원본은 저장하지 않아요. 세션 데이터는 강의가 끝나고 3개월이 지나면 자동으로 지워지고, 학습에는 개인정보를 뺀 익명 데이터만 써요. 여기서 동의한 내용은 강의에 입장할 때마다 다시 묻지 않고, 마이페이지에서 바꿀 수 있어요.
           </p>
         </div>
 

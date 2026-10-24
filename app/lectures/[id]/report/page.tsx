@@ -6,7 +6,7 @@ import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { SummaryNote } from "@/components/SummaryNote";
 import { Button, Empty, Modal, RoundButton, Screen, StatusPill, Tabs, TopBar, useToast } from "@/components/ui";
-import { archive, findLecture, pageHistogram, pastQuestionLog, transformerNote } from "@/lib/mock";
+import { archive, findLecture, logStats, pageHistogram, questionLogs, transformerNote } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 export default function Report() {
@@ -20,7 +20,7 @@ export default function Report() {
   const [delQ, setDelQ] = useState<string | null>(null);
   const { deletedQuestions } = useDemo();
   const toast = useToast();
-  const log = pastQuestionLog.filter((q) => !deletedQuestions.includes(q.text));
+  const log = (questionLogs[id] ?? []).filter((q) => !deletedQuestions.includes(q.text));
   const topLiked = [...log].filter((q) => q.likes > 0).sort((a, b) => b.likes - a.likes).slice(0, 3);
 
   useEffect(() => {
@@ -37,10 +37,12 @@ export default function Report() {
       </Screen>
     );
 
-  const stats = lecture.stats ?? { questions: 19, ai: 9, forwarded: 10, likes: 142, retracted: 1 };
+  // 통계는 질문 기록에서 바로 계산해 탭끼리 숫자가 어긋나지 않게 한다
+  const stats = logStats(log);
+  const histogram = pageHistogram(log, lecture.file?.pages ?? 30);
   const note = lecture.id === "l1" ? transformerNote : lecture.id === "l3" ? { ...archive[3].note!, headline: "React 상태를 어디에 둘지 고르는 기준: 지역 상태, 리듀서, Context" } : archive[1].note!;
-  const aiRate = Math.round((stats.ai / stats.questions) * 100);
-  const maxBar = Math.max(...pageHistogram.map((p) => p.count));
+  const aiRate = stats.questions ? Math.round((stats.ai / stats.questions) * 100) : 0;
+  const maxBar = Math.max(1, ...histogram.map((p) => p.count));
 
   return (
     <Screen>
@@ -117,7 +119,7 @@ export default function Report() {
               <p className="font-bold">교안 페이지별 질문</p>
               <p className="text-xs text-muted">어느 부분에서 질문이 몰렸는지 보여줘요</p>
               <div className="mt-4 flex h-36 items-end gap-2">
-                {pageHistogram.map((p) => (
+                {histogram.map((p) => (
                   <div key={p.page} className="flex h-full flex-1 flex-col items-center gap-1">
                     <div className="flex w-full flex-1 flex-col items-center justify-end gap-1">
                       <span className="text-xs font-bold">{p.count}</span>
@@ -138,7 +140,7 @@ export default function Report() {
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-bold text-white">{i + 1}</span>
                     <span className="min-w-0 flex-1 text-sm leading-snug">
                       {q.text}
-                      <span className="mt-0.5 block text-xs text-muted">교안 {q.page}p</span>
+                      <span className="mt-0.5 block text-xs text-muted">{q.page ? `교안 ${q.page}p` : "일반 질문"}</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-1 text-sm font-semibold">
                       <Icon name="heart" size={14} /> {q.likes}
@@ -182,7 +184,7 @@ export default function Report() {
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] leading-snug">{q.text}</p>
                   <p className="mt-0.5 text-xs text-muted">
-                    교안 {q.page}p · {q.kind === "ai" ? "AI 답변" : `강연자 답변 · 공감 ${q.likes}`}
+                    {q.page ? `교안 ${q.page}p` : "일반 질문"} · {q.kind === "ai" ? (q.retracted ? "AI 답변 철회됨" : "AI 답변") : `강연자 답변 · 공감 ${q.likes}`}
                   </p>
                 </div>
                 <button onClick={() => setDelQ(q.text)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-ink/5" aria-label="질문 기록 삭제">

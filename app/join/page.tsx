@@ -1,35 +1,56 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, PageTitle, Screen, StatusPill, TopBar, inputCls } from "@/components/ui";
-import { SESSION_CAPACITY, findLectureByCode, statusOf, type Lecture } from "@/lib/mock";
+import { SESSION_CAPACITY, resolveCode, statusOf, type Lecture } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 // 회원은 가입 때 계정 단위로 동의했으니 바로 입장하고, 게스트만 입장할 때마다 동의를 받는다
 type Step = "code" | "who" | "consent";
 
-export default function Join() {
+// useSearchParams는 Suspense 안에서만 쓸 수 있다
+export default function JoinPage() {
+  return (
+    <Suspense>
+      <Join />
+    </Suspense>
+  );
+}
+
+function Join() {
   const router = useRouter();
-  const { name, endedLectures } = useDemo();
-  const [step, setStep] = useState<Step>("code");
-  const [code, setCode] = useState("");
-  const [error, setError] = useState("");
-  const [lecture, setLecture] = useState<Lecture | null>(null);
+  const { name, endedLectures, codes } = useDemo();
+
+  // 입장 코드 검사. 들어갈 수 없으면 error를 돌려준다
+  function evaluate(c: string): { lecture: Lecture | null; error: string } {
+    const { lecture: l, expired } = resolveCode(c, codes);
+    if (!l) return { lecture: null, error: "입장 코드를 찾을 수 없어요. 다시 확인해 주세요." };
+    if (expired) return { lecture: null, error: "재발급돼서 더 이상 쓸 수 없는 코드예요. 강의실 화면의 새 코드를 입력해 주세요." };
+    const status = statusOf(l, endedLectures);
+    if (status === "ended") return { lecture: null, error: "이미 끝난 강의예요. 보관함에서 기록을 볼 수 있어요." };
+    if (status === "ready") return { lecture: null, error: "아직 시작 전인 강의예요. 강연자가 시작하면 들어올 수 있어요." };
+    if (l.audience >= SESSION_CAPACITY) return { lecture: null, error: `정원(${SESSION_CAPACITY}명)이 다 찬 강의예요. 자리가 나면 다시 들어와 주세요.` };
+    return { lecture: l, error: "" };
+  }
+
+  // QR · 링크(/live/코드)로 들어오면 코드를 채운 채 입장 절차(누구로 · 동의)부터 시작한다
+  const fromQr = useSearchParams().get("code")?.toUpperCase() ?? "";
+  const [initial] = useState(() => (fromQr ? evaluate(fromQr) : { lecture: null, error: "" }));
+  const [step, setStep] = useState<Step>(initial.lecture ? "who" : "code");
+  const [code, setCode] = useState(fromQr);
+  const [error, setError] = useState(initial.error);
+  const [lecture, setLecture] = useState<Lecture | null>(initial.lecture);
   const [agree, setAgree] = useState({ keep: false, learn: false });
   const [nick, setNick] = useState("");
   const [scanning, setScanning] = useState(false);
 
   function check(c: string) {
-    const l = findLectureByCode(c);
-    if (!l) return setError("입장 코드를 찾을 수 없어요. 다시 확인해 주세요.");
-    const status = statusOf(l, endedLectures);
-    if (status === "ended") return setError("이미 끝난 강의예요. 보관함에서 기록을 볼 수 있어요.");
-    if (status === "ready") return setError("아직 시작 전인 강의예요. 강연자가 시작하면 들어올 수 있어요.");
-    if (l.audience >= SESSION_CAPACITY) return setError(`정원(${SESSION_CAPACITY}명)이 다 찬 강의예요. 자리가 나면 다시 들어와 주세요.`);
-    setLecture(l);
+    const r = evaluate(c);
+    if (!r.lecture) return setError(r.error);
+    setLecture(r.lecture);
     setStep("who");
   }
 
@@ -37,15 +58,17 @@ export default function Join() {
     setScanning(true);
     setTimeout(() => {
       setScanning(false);
-      setCode("QX7K2");
-      check("QX7K2");
+      const live = codes.l1 ?? "QX7K2";
+      setCode(live);
+      check(live);
     }, 1400);
   }
 
   function enter(asGuest: boolean) {
     if (!lecture) return;
-    setDemo({ guestName: asGuest ? nick.trim() || "익명의 청중" : null });
-    router.push(`/live/${lecture.code}`);
+    const current = codes[lecture.id] ?? lecture.code;
+    setDemo({ guestName: asGuest ? nick.trim() || "익명의 청중" : null, joinedCode: current });
+    router.push(`/live/${current}`);
   }
 
   return (
@@ -121,7 +144,7 @@ export default function Join() {
               onClick={() => setAgree((a) => ({ ...a, keep: !a.keep }))}
               title="질문 · 답변 기록 보관"
               required
-              desc="질문과 답변은 강의가 끝난 뒤 정해진 기간 동안 보관되고 자동으로 지워져요. 음성 원본은 저장하지 않아요."
+              desc="질문과 답변은 강의가 끝난 뒤 3개월 동안 보관되고 자동으로 지워져요. 음성 원본은 저장하지 않아요."
             />
             <Consent
               on={agree.learn}

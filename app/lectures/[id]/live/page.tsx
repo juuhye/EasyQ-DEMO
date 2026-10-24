@@ -5,11 +5,11 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { FakeQR } from "@/components/FakeQR";
 import { Bubble, Logo, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
-import { QrModal } from "@/components/QrModal";
+import { QrModal, QrReissue } from "@/components/QrModal";
 import { SourceChips } from "@/components/SourceChips";
 import { Button, Empty, Modal, RoundButton, useToast } from "@/components/ui";
 import { type AiQuestion, findLecture, incomingQuestions, initialTranscript, liveAiQuestions, livePublicQuestions, type PublicQuestion, toneCycle, transcriptScript } from "@/lib/mock";
-import { setDemo } from "@/lib/store";
+import { setDemo, useDemo } from "@/lib/store";
 
 type Stt = "off" | "listening" | "paused" | "reconnecting";
 
@@ -25,6 +25,7 @@ export default function LiveDashboard() {
   const router = useRouter();
   const toast = useToast();
   const lecture = findLecture(id) ?? findLecture("l1")!;
+  const code = useDemo().codes[lecture.id] ?? lecture.code;
 
   const [qs, setQs] = useState<PublicQuestion[]>(livePublicQuestions);
   const [ai, setAi] = useState<AiQuestion[]>(liveAiQuestions);
@@ -320,14 +321,17 @@ export default function LiveDashboard() {
 
               {/* QR */}
               <div className="mt-4 flex items-center gap-4 rounded-[28px] bg-white p-4">
-                <FakeQR code={lecture.code} size={96} />
+                <FakeQR code={code} size={96} />
                 <div className="flex-1">
                   <p className="text-xs text-muted">입장 코드</p>
-                  <p className="text-3xl font-extrabold tracking-[0.2em]">{lecture.code}</p>
+                  <p className="text-3xl font-extrabold tracking-[0.2em]">{code}</p>
                 </div>
-                <Button size="sm" variant="soft" icon="expand" onClick={() => setQrOpen(true)}>
-                  전체 화면
-                </Button>
+                <div className="flex flex-col gap-1.5">
+                  <Button size="sm" variant="soft" icon="expand" onClick={() => setQrOpen(true)}>
+                    전체 화면
+                  </Button>
+                  <QrReissue lectureId={lecture.id} onDone={(c) => toast.show(`새 입장 코드 ${c}를 만들었어요. 이전 QR은 꺼졌어요`, "mint")} />
+                </div>
               </div>
             </section>
 
@@ -378,7 +382,7 @@ export default function LiveDashboard() {
         </div>
       </main>
 
-      <QrModal open={qrOpen} onClose={() => setQrOpen(false)} code={lecture.code} title={lecture.title} />
+      <QrModal open={qrOpen} onClose={() => setQrOpen(false)} code={code} title={lecture.title} />
 
       <Modal open={!!retractId} onClose={() => setRetractId(null)} title="이 AI 답변을 철회할까요?">
         <p className="rounded-2xl bg-white p-3.5 font-bold">{ai.find((a) => a.id === retractId)?.text}</p>

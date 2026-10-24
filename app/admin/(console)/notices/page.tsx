@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AdminTitle, Panel } from "@/components/admin";
 import { Icon } from "@/components/Icon";
-import { Button, Field, Pill, Tabs, inputCls, useToast } from "@/components/ui";
+import { Button, Field, Modal, Pill, Tabs, inputCls, useToast } from "@/components/ui";
 import { adminInquiries } from "@/lib/admin";
 import { notices as initialNotices } from "@/lib/mock";
 
@@ -13,6 +13,9 @@ export default function AdminNotices() {
   const [inquiries, setInquiries] = useState(adminInquiries);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  // 수정 중인 공지 id. null이면 새 공지를 쓴다
+  const [editing, setEditing] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(inquiries.find((i) => !i.answer)?.id ?? null);
   const [reply, setReply] = useState("");
   const toast = useToast();
@@ -21,10 +24,35 @@ export default function AdminNotices() {
   function post(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !body.trim()) return;
-    setNotices((n) => [{ id: `n${Date.now()}`, title: title.trim(), body: body.trim(), date: "2026.10.22" }, ...n]);
+    if (editing) {
+      setNotices((n) => n.map((x) => (x.id === editing ? { ...x, title: title.trim(), body: body.trim() } : x)));
+      toast.show("공지를 수정했어요", "mint");
+    } else {
+      setNotices((n) => [{ id: `n${Date.now()}`, title: title.trim(), body: body.trim(), date: "2026.10.22" }, ...n]);
+      toast.show("공지를 올렸어요. 회원 홈에 바로 보여요.", "mint");
+    }
+    cancelEdit();
+  }
+
+  function startEdit(id: string) {
+    const n = notices.find((x) => x.id === id);
+    if (!n) return;
+    setEditing(id);
+    setTitle(n.title);
+    setBody(n.body);
+  }
+
+  function cancelEdit() {
+    setEditing(null);
     setTitle("");
     setBody("");
-    toast.show("공지를 올렸어요. 회원 홈에 바로 보여요.", "mint");
+  }
+
+  function remove() {
+    setNotices((n) => n.filter((x) => x.id !== removing));
+    if (editing === removing) cancelEdit();
+    setRemoving(null);
+    toast.show("공지를 삭제했어요");
   }
 
   function answer(id: string) {
@@ -51,7 +79,7 @@ export default function AdminNotices() {
 
       {tab === "notice" ? (
         <div className="mt-4 grid animate-rise gap-3 lg:grid-cols-[1fr_1.2fr]">
-          <Panel title="새 공지">
+          <Panel title={editing ? "공지 수정" : "새 공지"}>
             <form onSubmit={post} className="space-y-4">
               <Field label="제목">
                 <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 11/3 서버 점검 안내" />
@@ -59,20 +87,35 @@ export default function AdminNotices() {
               <Field label="내용">
                 <textarea className={`${inputCls} h-36 resize-none`} value={body} onChange={(e) => setBody(e.target.value)} placeholder="회원에게 보일 내용을 적어 주세요" />
               </Field>
-              <Button type="submit" className="w-full" icon="megaphone" disabled={!title.trim() || !body.trim()}>
-                공지 올리기
-              </Button>
+              <div className="flex gap-2">
+                {editing && (
+                  <Button type="button" variant="soft" className="flex-1" onClick={cancelEdit}>
+                    취소
+                  </Button>
+                )}
+                <Button type="submit" className="flex-1" icon={editing ? "check" : "megaphone"} disabled={!title.trim() || !body.trim()}>
+                  {editing ? "수정 저장" : "공지 올리기"}
+                </Button>
+              </div>
             </form>
           </Panel>
           <Panel title="올린 공지">
             <div className="space-y-2">
               {notices.map((n) => (
-                <div key={n.id} className="animate-rise rounded-[18px] bg-paper p-4">
+                <div key={n.id} className={`animate-rise rounded-[18px] bg-paper p-4 ${editing === n.id ? "ring-2 ring-ink" : ""}`}>
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-bold">{n.title}</p>
                     <span className="shrink-0 text-xs text-muted">{n.date}</span>
                   </div>
                   <p className="mt-1 text-sm leading-relaxed text-ink/70">{n.body}</p>
+                  <div className="mt-3 flex justify-end gap-1.5">
+                    <Button size="sm" variant="ghost" icon="pen" onClick={() => startEdit(n.id)}>
+                      수정
+                    </Button>
+                    <Button size="sm" variant="ghost" icon="trash" onClick={() => setRemoving(n.id)}>
+                      삭제
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -118,6 +161,19 @@ export default function AdminNotices() {
           ))}
         </div>
       )}
+
+      <Modal open={!!removing} onClose={() => setRemoving(null)} title="이 공지를 삭제할까요?">
+        <p className="rounded-2xl bg-white p-3.5 font-bold">{notices.find((n) => n.id === removing)?.title}</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted">회원 화면의 공지사항에서 바로 사라지고 되돌릴 수 없어요.</p>
+        <div className="mt-6 flex gap-2">
+          <Button variant="soft" className="flex-1" onClick={() => setRemoving(null)}>
+            취소
+          </Button>
+          <Button variant="danger" className="flex-1" onClick={remove}>
+            삭제하기
+          </Button>
+        </div>
+      </Modal>
     </>
   );
 }

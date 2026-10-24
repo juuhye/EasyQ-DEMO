@@ -38,14 +38,13 @@ export type Lecture = {
   file: { name: string; pages: number; chunks: number; state: FileState; failReason?: string } | null;
   audience: number;
   glossary: string[];
-  stats?: { questions: number; ai: number; forwarded: number; likes: number; retracted: number };
 };
 
 export const lectures: Lecture[] = [
   {
     id: "l1",
     title: "인공지능 개론 7주차 · 트랜스포머",
-    date: "2026.10.15 (목)",
+    date: "2026.10.22 (목)",
     time: "14:00",
     desc: "셀프 어텐션부터 인코더-디코더 구조까지",
     status: "live",
@@ -59,7 +58,7 @@ export const lectures: Lecture[] = [
   {
     id: "l2",
     title: "데이터베이스 설계 특강",
-    date: "2026.10.21 (수)",
+    date: "2026.10.23 (금)",
     time: "10:30",
     desc: "정규화와 인덱스 설계 실습",
     status: "ready",
@@ -83,7 +82,6 @@ export const lectures: Lecture[] = [
     file: { name: "06_react_state.pdf", pages: 31, chunks: 142, state: "done" },
     audience: 94,
     glossary: ["useState", "useReducer", "Context", "Props", "Re-render"],
-    stats: { questions: 57, ai: 34, forwarded: 23, likes: 212, retracted: 2 },
   },
   {
     id: "l4",
@@ -98,7 +96,6 @@ export const lectures: Lecture[] = [
     file: { name: "opensource_seminar.pdf", pages: 24, chunks: 97, state: "done" },
     audience: 61,
     glossary: ["Pull Request", "Issue", "License", "Fork"],
-    stats: { questions: 31, ai: 15, forwarded: 16, likes: 88, retracted: 0 },
   },
 ];
 
@@ -109,8 +106,19 @@ export function findLecture(id: string) {
 // 세션 정원 (N-08 동시 접속 목표)
 export const SESSION_CAPACITY = 300;
 
-export function findLectureByCode(code: string) {
-  return lectures.find((l) => l.code === code.trim().toUpperCase());
+// 입장 코드로 강의를 찾는다. 재발급된 강의의 이전 코드는 expired로 돌려준다
+export function resolveCode(code: string, codes: Record<string, string>) {
+  const c = code.trim().toUpperCase();
+  const lecture = lectures.find((l) => (codes[l.id] ?? l.code) === c);
+  if (lecture) return { lecture, expired: false };
+  const old = lectures.find((l) => codes[l.id] && l.code === c);
+  return { lecture: old, expired: !!old };
+}
+
+// 입장 코드 재발급용. 헷갈리는 글자(0 · O · 1 · I)는 뺀다
+export function newCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
 // 강연자 · 관리자가 종료한 강의까지 반영한 상태
@@ -400,24 +408,58 @@ export function archiveWith(endedLectures: string[]) {
   return endedLectures.includes(lectures[0].id) ? [liveArchive, ...archive] : archive;
 }
 
-// 지난 강의 리포트용 질문 기록
-export const pastQuestionLog = [
-  { text: "useReducer는 언제 useState 대신 쓰나요?", kind: "ai" as const, likes: 0, page: 12 },
-  { text: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", kind: "forwarded" as const, likes: 27, page: 18 },
-  { text: "상태 관리 라이브러리는 실무에서 뭘 많이 쓰나요?", kind: "forwarded" as const, likes: 21, page: 29 },
-  { text: "setState가 비동기라는 게 정확히 무슨 뜻인가요?", kind: "ai" as const, likes: 0, page: 7 },
-  { text: "props drilling이 몇 단계부터 문제인가요?", kind: "forwarded" as const, likes: 12, page: 16 },
-  { text: "key prop을 index로 쓰면 왜 안 되나요?", kind: "ai" as const, likes: 0, page: 9 },
-];
+// 지난 강의 리포트용 질문 기록. 리포트 통계 · 내 강의 목록의 숫자는 모두 여기서 계산한다
+export type LogEntry = { text: string; kind: "ai" | "forwarded"; likes: number; page: number | null; retracted?: boolean };
 
-export const pageHistogram = [
-  { page: "1–5", count: 4 },
-  { page: "6–10", count: 11 },
-  { page: "11–15", count: 9 },
-  { page: "16–20", count: 15 },
-  { page: "21–25", count: 6 },
-  { page: "26–31", count: 12 },
-];
+export const questionLogs: Record<string, LogEntry[]> = {
+  // 진행 중인 강의(l1)는 끝나면 라이브 화면의 질문으로 리포트를 만든다
+  l1: [
+    ...liveAiQuestions.map((q) => ({ text: q.text, kind: "ai" as const, likes: 0, page: Number(q.sources.find((s) => s.kind === "slide")?.label.match(/\d+/)?.[0]) || null, retracted: q.id === "a2" })),
+    ...livePublicQuestions.map((q) => ({ text: q.text, kind: "forwarded" as const, likes: q.likes, page: q.page })),
+  ],
+  l3: [
+    { text: "useReducer는 언제 useState 대신 쓰나요?", kind: "ai", likes: 0, page: 12 },
+    { text: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", kind: "forwarded", likes: 27, page: 18 },
+    { text: "상태 관리 라이브러리는 실무에서 뭘 많이 쓰나요?", kind: "forwarded", likes: 21, page: 29 },
+    { text: "setState가 비동기라는 게 정확히 무슨 뜻인가요?", kind: "ai", likes: 0, page: 7, retracted: true },
+    { text: "props drilling이 몇 단계부터 문제인가요?", kind: "forwarded", likes: 12, page: 16 },
+    { text: "key prop을 index로 쓰면 왜 안 되나요?", kind: "ai", likes: 0, page: 9 },
+    { text: "useState 초기값에 함수를 넘기는 이유가 뭔가요?", kind: "ai", likes: 0, page: 5 },
+    { text: "리듀서 안에서 API 호출해도 되나요?", kind: "forwarded", likes: 9, page: 14 },
+    { text: "Context Provider를 여러 개 겹쳐도 성능 문제 없나요?", kind: "ai", likes: 0, page: 19 },
+    { text: "과제에서 Redux를 써도 감점 없나요?", kind: "forwarded", likes: 15, page: null },
+    { text: "상태를 URL에 두는 경우는 언제인가요?", kind: "forwarded", likes: 6, page: 27 },
+    { text: "불변성을 지켜야 하는 이유가 뭔가요?", kind: "ai", likes: 0, page: 11 },
+  ],
+  l4: [
+    { text: "첫 기여로 문서 수정만 해도 괜찮나요?", kind: "forwarded", likes: 14, page: 6 },
+    { text: "Fork와 Clone은 뭐가 달라요?", kind: "ai", likes: 0, page: 9 },
+    { text: "MIT랑 Apache 라이선스 차이가 뭔가요?", kind: "ai", likes: 0, page: 17 },
+    { text: "PR이 몇 주째 리뷰가 안 되면 어떻게 하나요?", kind: "forwarded", likes: 11, page: 21 },
+    { text: "good first issue는 어디서 찾나요?", kind: "ai", likes: 0, page: 12 },
+    { text: "회사 코드를 오픈소스로 공개할 때 주의할 점은요?", kind: "forwarded", likes: 7, page: null },
+  ],
+};
+
+export function logStats(log: LogEntry[]) {
+  const ai = log.filter((q) => q.kind === "ai").length;
+  return {
+    questions: log.length,
+    ai,
+    forwarded: log.length - ai,
+    likes: log.reduce((s, q) => s + q.likes, 0),
+    retracted: log.filter((q) => q.retracted).length,
+  };
+}
+
+// 교안 페이지를 5쪽 단위로 묶은 질문 수
+export function pageHistogram(log: LogEntry[], pages: number) {
+  return Array.from({ length: Math.ceil(pages / 5) }, (_, i) => {
+    const from = i * 5 + 1;
+    const to = Math.min(pages, from + 4);
+    return { page: `${from}–${to}`, count: log.filter((q) => q.page && q.page >= from && q.page <= to).length };
+  });
+}
 
 export const notices = [
   { id: "n1", title: "EasyQ 베타 오픈 안내", date: "2026.10.01", body: "가천대 실무프로젝트 EasyQ 베타가 열렸어요. 강의를 만들고 QR로 청중을 초대해 보세요." },

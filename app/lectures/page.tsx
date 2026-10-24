@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Empty, PageTitle, RoundButton, Screen, StatusPill, Tabs } from "@/components/ui";
-import { lectures, type LectureStatus } from "@/lib/mock";
+import { lectures, logStats, questionLogs, type LectureStatus } from "@/lib/mock";
 import { useDemo } from "@/lib/store";
 
 export default function Lectures() {
@@ -17,7 +17,7 @@ export default function Lectures() {
     ...lectures,
   ]
     .filter((l) => !deletedLectures.includes(l.id))
-    .map((l) => (endedLectures.includes(l.id) ? { ...l, status: "ended" as const, stats: l.stats ?? { questions: 19, ai: 9, forwarded: 10, likes: 142, retracted: 1 } } : l));
+    .map((l) => (endedLectures.includes(l.id) ? { ...l, status: "ended" as const } : l));
   const list = all.filter((l) => l.status === tab);
 
   return (
@@ -61,7 +61,7 @@ export default function Lectures() {
                     </div>
                     <div className="mt-4 flex items-center justify-between text-sm">
                       <span className="text-ink/65">
-                        {l.status === "ended" && l.stats && `질문 ${l.stats.questions} · 청중 ${l.audience}`}
+                        {l.status === "ended" && `질문 ${logStats(questionLogs[l.id] ?? []).questions} · 청중 ${l.audience}`}
                         {l.status === "live" && `청중 ${l.audience}명 참여 중`}
                         {l.status === "ready" && (l.file?.state === "done" ? "교안 준비 완료" : l.file ? "교안 처리 확인 필요" : "교안 업로드 전")}
                       </span>

@@ -68,21 +68,21 @@ export type AdminSession = {
 };
 
 export const adminSessions: AdminSession[] = [
-  { id: "l1", title: "인공지능 개론 7주차 · 트랜스포머", speaker: "주혜", status: "live", date: "2026.10.22 14:00", audience: 128, questions: 64, code: "QX7K2" },
+  { id: "l1", title: "인공지능 개론 7주차 · 트랜스포머", speaker: "주혜", status: "live", date: "2026.10.22 14:00", audience: 128, questions: 10, code: "QX7K2" },
   { id: "s2", title: "경영학원론 · 마케팅 믹스", speaker: "오세훈", status: "live", date: "2026.10.22 13:30", audience: 212, questions: 141, code: "MK4P2", issue: "부적절한 질문 신고 5건 · 분당 질문 38건 급증" },
   { id: "s3", title: "컴퓨터 비전 특강 · NeRF", speaker: "김서연", status: "live", date: "2026.10.22 15:00", audience: 47, questions: 9, code: "CV9N1", issue: "STT 재연결 4회 (10분 제한)" },
   { id: "l2", title: "데이터베이스 설계 특강", speaker: "주혜", status: "ready", date: "2026.10.23 10:30", audience: 0, questions: 0, code: "DB4M8" },
   { id: "s5", title: "알고리즘 10주차 · 그래프 탐색", speaker: "박도윤", status: "ready", date: "2026.10.24 09:00", audience: 0, questions: 0, code: "AL0G5" },
-  { id: "l3", title: "웹 프로그래밍 6주차 · React 상태 관리", speaker: "주혜", status: "ended", date: "2026.10.08 13:00", audience: 94, questions: 57, code: "WB6R3" },
+  { id: "l3", title: "웹 프로그래밍 6주차 · React 상태 관리", speaker: "주혜", status: "ended", date: "2026.10.08 13:00", audience: 94, questions: 12, code: "WB6R3" },
   { id: "s7", title: "창업 세미나 · MVP 검증하기", speaker: "이하준", status: "ended", date: "2026.09.30 16:00", audience: 73, questions: 38, code: "SU3M7" },
 ];
 
 // 세션별 운영 지표 (F9-7, 세션 단위 집계)
 export const sessionMetrics = [
   { id: "s2", title: "경영학원론 · 마케팅 믹스", questions: 141, aiRate: 61, p50: 2.2, cost: 1980 },
-  { id: "l1", title: "인공지능 개론 7주차 · 트랜스포머", questions: 64, aiRate: 58, p50: 2.5, cost: 1240 },
+  { id: "l1", title: "인공지능 개론 7주차 · 트랜스포머", questions: 10, aiRate: 40, p50: 2.5, cost: 1240 },
   { id: "s3", title: "컴퓨터 비전 특강 · NeRF", questions: 9, aiRate: 33, p50: 3.9, cost: 310 },
-  { id: "l3", title: "웹 프로그래밍 6주차 · React 상태 관리", questions: 57, aiRate: 60, p50: 2.6, cost: 1420 },
+  { id: "l3", title: "웹 프로그래밍 6주차 · React 상태 관리", questions: 12, aiRate: 50, p50: 2.6, cost: 1420 },
   { id: "s7", title: "창업 세미나 · MVP 검증하기", questions: 38, aiRate: 39, p50: 2.9, cost: 1760 },
 ];
 
@@ -162,18 +162,20 @@ export type LabelCandidate = {
   score: number;
   suggested: LabelKind;
   evidence?: string;
+  // 답변 가능으로 확정할 때 검수자가 고르는 정답 근거 후보 (교안 · 발화)
+  evidenceOptions: string[];
 };
 
 // 판정 모델이 AI 답변 가능으로 보는 점수 기준. 검수는 이 값 바로 아래부터 본다
 export const judgeThreshold = 0.7;
 
 export const labelCandidates: LabelCandidate[] = [
-  { id: "c1", question: "멀티헤드 어텐션은 헤드 수가 많을수록 항상 좋아지나요?", lecture: "인공지능 개론 7주차", origin: "철회", predicted: "answerable", score: 0.81, suggested: "forward", evidence: "교안 16p: h = 8 설정만 있고 일반화 근거 없음" },
-  { id: "c2", question: "어텐션 시각화한 그림에서 왜 대각선이 유독 진한가요?", lecture: "인공지능 개론 7주차", origin: "이관", predicted: "forward", score: 0.42, suggested: "answerable", evidence: "발화 14:26: 자기 자신과의 유사도가 가장 높아서 대각선이 진해요" },
-  { id: "c3", question: "setState가 비동기라는 게 정확히 무슨 뜻인가요?", lecture: "웹 프로그래밍 6주차", origin: "피드백 👎", predicted: "answerable", score: 0.77, suggested: "answerable", evidence: "교안 7p: 배치 업데이트 설명 — 답변 문장 품질 문제로 판단" },
-  { id: "c4", question: "4P 중에 요즘 제일 중요한 건 뭐라고 보세요?", lecture: "경영학원론 · 마케팅 믹스", origin: "이관", predicted: "forward", score: 0.18, suggested: "forward" },
-  { id: "c5", question: "NeRF 학습에 GPU 몇 장 쓰셨어요?", lecture: "컴퓨터 비전 특강 · NeRF", origin: "피드백 👎", predicted: "answerable", score: 0.63, suggested: "forward", evidence: "교안 · 발화 모두 해당 내용 없음 — 추측성 답변" },
-  { id: "c6", question: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", lecture: "웹 프로그래밍 6주차", origin: "이관", predicted: "forward", score: 0.47, suggested: "answerable", evidence: "교안 18p: Context 값 변경 시 구독 컴포넌트 전체 리렌더" },
+  { id: "c1", question: "멀티헤드 어텐션은 헤드 수가 많을수록 항상 좋아지나요?", lecture: "인공지능 개론 7주차", origin: "철회", predicted: "answerable", score: 0.81, suggested: "forward", evidence: "교안 16p: h = 8 설정만 있고 일반화 근거 없음", evidenceOptions: ["교안 16p: Multi-Head: h = 8, dₖ = d_model / h = 64", "발화 14:23: 헤드를 나누면 서로 다른 관계를 동시에 볼 수 있어요"] },
+  { id: "c2", question: "어텐션 시각화한 그림에서 왜 대각선이 유독 진한가요?", lecture: "인공지능 개론 7주차", origin: "이관", predicted: "forward", score: 0.42, suggested: "answerable", evidence: "발화 14:26: 자기 자신과의 유사도가 가장 높아서 대각선이 진해요", evidenceOptions: ["발화 14:26: 자기 자신과의 유사도가 가장 높아서 대각선이 진해요", "교안 19p: 어텐션 가중치 시각화 그림"] },
+  { id: "c3", question: "setState가 비동기라는 게 정확히 무슨 뜻인가요?", lecture: "웹 프로그래밍 6주차", origin: "피드백 👎", predicted: "answerable", score: 0.77, suggested: "answerable", evidence: "교안 7p: 배치 업데이트 설명 — 답변 문장 품질 문제로 판단", evidenceOptions: ["교안 7p: setState는 바로 반영되지 않고 배치로 모아 업데이트해요", "발화 13:22: 다음 렌더에서 새 값이 보여요"] },
+  { id: "c4", question: "4P 중에 요즘 제일 중요한 건 뭐라고 보세요?", lecture: "경영학원론 · 마케팅 믹스", origin: "이관", predicted: "forward", score: 0.18, suggested: "forward", evidenceOptions: ["교안 5p: 마케팅 믹스 4P 정의"] },
+  { id: "c5", question: "NeRF 학습에 GPU 몇 장 쓰셨어요?", lecture: "컴퓨터 비전 특강 · NeRF", origin: "피드백 👎", predicted: "answerable", score: 0.63, suggested: "forward", evidence: "교안 · 발화 모두 해당 내용 없음 — 추측성 답변", evidenceOptions: ["교안 3p: NeRF 학습 과정 개요"] },
+  { id: "c6", question: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", lecture: "웹 프로그래밍 6주차", origin: "이관", predicted: "forward", score: 0.47, suggested: "answerable", evidence: "교안 18p: Context 값 변경 시 구독 컴포넌트 전체 리렌더", evidenceOptions: ["교안 18p: Context 값이 바뀌면 구독 컴포넌트 전체가 리렌더돼요", "발화 13:41: 값을 쪼개 Provider를 나누면 리렌더를 줄일 수 있어요"] },
 ];
 
 export const labelText: Record<LabelKind, string> = { answerable: "AI 답변 가능", forward: "강연자 이관" };

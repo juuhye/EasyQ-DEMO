@@ -4,15 +4,17 @@ import Link from "next/link";
 import { Avatar, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { RoundButton, Screen } from "@/components/ui";
-import { archive, lectures, tones } from "@/lib/mock";
+import { archiveWith, lectures, tones } from "@/lib/mock";
 import { useDemo } from "@/lib/store";
 
 export default function Home() {
-  const { name, deletedArchives } = useDemo();
+  const { name, deletedArchives, endedLectures } = useDemo();
   const live = lectures.find((l) => l.status === "live")!;
   const ready = lectures.find((l) => l.status === "ready")!;
-  const recent = archive.filter((a) => !deletedArchives.includes(a.id)).slice(0, 3);
-  const notes = archive.filter((a) => a.summary === "ready").length;
+  // 보관함 화면과 같은 목록에서 센다. 홈에는 최근 3개만 보여준다
+  const myArchive = archiveWith(endedLectures).filter((a) => !deletedArchives.includes(a.id));
+  const recent = myArchive.slice(0, 3);
+  const notes = myArchive.filter((a) => a.summary === "ready").length;
 
   return (
     <Screen nav dark width="wide">
@@ -79,7 +81,7 @@ export default function Home() {
           <div className="mb-1 mt-7 flex items-center justify-between">
             <h2 className="text-[17px] font-bold">보관함에서:</h2>
             <Link href="/archive" className="flex items-center gap-1.5 text-sm">
-              {recent.length}개 강의 <Icon name="right" size={15} />
+              전체 {myArchive.length}개 강의 <Icon name="right" size={15} />
             </Link>
           </div>
           <ul className="divide-y divide-line">

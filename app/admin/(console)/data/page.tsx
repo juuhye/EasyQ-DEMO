@@ -126,17 +126,37 @@ const reviewOrder = [...labelCandidates].sort((a, b) => {
 });
 
 function ReviewView() {
-  const { labelDecisions } = useDemo();
+  const { labelDecisions, labelEvidence } = useDemo();
+  const [choosing, setChoosing] = useState<Record<string, { d: Decision; evidence: string | null }>>({});
   const decided = Object.values(labelDecisions);
   const accepted = decided.filter((d) => d !== "exclude").length;
 
-  function decide(id: string, d: Decision | null) {
+  function decide(id: string, d: Decision | null, evidence?: string) {
     setDemo((s) => {
       const next = { ...s.labelDecisions };
+      const ev = { ...s.labelEvidence };
       if (d) next[id] = d;
       else delete next[id];
-      return { labelDecisions: next };
+      if (evidence) ev[id] = evidence;
+      else delete ev[id];
+      return { labelDecisions: next, labelEvidence: ev };
     });
+    closeChoice(id);
+  }
+
+  function closeChoice(id: string) {
+    setChoosing((m) => {
+      const next = { ...m };
+      delete next[id];
+      return next;
+    });
+  }
+
+  // 답변 가능으로 확정할 때는 검수자가 정답 근거를 먼저 고른다
+  function pick(c: LabelCandidate, d: Decision) {
+    const final = d === "approve" ? c.suggested : d === "flip" ? flip(c.suggested) : null;
+    if (final === "answerable") return setChoosing((m) => ({ ...m, [c.id]: { d, evidence: null } }));
+    decide(c.id, d);
   }
 
   return (
@@ -157,6 +177,7 @@ function ReviewView() {
         {reviewOrder.map((c) => {
           const d = labelDecisions[c.id];
           const final = d === "approve" ? c.suggested : d === "flip" ? flip(c.suggested) : null;
+          const ch = choosing[c.id];
           return (
             <div key={c.id} className={`flex flex-col rounded-[24px] bg-white p-5 transition-opacity ${d ? "opacity-60" : ""}`}>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -176,28 +197,59 @@ function ReviewView() {
                   <p className="mt-0.5 font-bold">{labelText[c.suggested]}</p>
                 </div>
               </div>
-              {c.evidence && <p className="mt-3 text-xs leading-relaxed text-ink/60">근거: {c.evidence}</p>}
+              {c.evidence && <p className="mt-3 text-xs leading-relaxed text-ink/60">검수 메모: {c.evidence}</p>}
 
               <div className="mt-auto pt-4">
                 {d ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 text-sm font-semibold">
-                      <Icon name={d === "exclude" ? "x" : "check"} size={16} />
-                      {d === "exclude" ? "학습에서 제외" : `${withParticle(labelText[final!])} 확정${d === "flip" ? " · 수정" : ""}`}
-                    </span>
-                    <button onClick={() => decide(c.id, null)} className="flex items-center gap-1 text-xs text-muted underline underline-offset-4">
-                      <Icon name="undo" size={13} /> 되돌리기
-                    </button>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-sm font-semibold">
+                        <Icon name={d === "exclude" ? "x" : "check"} size={16} />
+                        {d === "exclude" ? "학습에서 제외" : `${withParticle(labelText[final!])} 확정${d === "flip" ? " · 수정" : ""}`}
+                      </span>
+                      <button onClick={() => decide(c.id, null)} className="flex items-center gap-1 text-xs text-muted underline underline-offset-4">
+                        <Icon name="undo" size={13} /> 되돌리기
+                      </button>
+                    </div>
+                    {labelEvidence[c.id] && <p className="mt-1.5 text-xs text-ink/60">정답 근거: {labelEvidence[c.id]}</p>}
+                  </div>
+                ) : ch ? (
+                  <div className="rounded-2xl bg-paper p-3">
+                    <p className="text-xs font-semibold text-ink/70">AI 답변 가능으로 확정하려면 정답 근거를 골라 주세요</p>
+                    <div role="radiogroup" aria-label="정답 근거" className="mt-2 space-y-1.5">
+                      {c.evidenceOptions.map((ev) => (
+                        <button
+                          key={ev}
+                          role="radio"
+                          aria-checked={ch.evidence === ev}
+                          onClick={() => setChoosing((m) => ({ ...m, [c.id]: { ...ch, evidence: ev } }))}
+                          className={`flex w-full items-start gap-2 rounded-xl bg-white p-2.5 text-left text-xs ring-inset ${ch.evidence === ev ? "ring-2 ring-ink" : ""}`}
+                        >
+                          <span className={`mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-white ${ch.evidence === ev ? "bg-ink" : "bg-ink/10"}`}>
+                            <Icon name="check" size={10} stroke={3.2} />
+                          </span>
+                          {ev}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-2.5 flex gap-2">
+                      <Button size="sm" className="flex-1" icon="check" disabled={!ch.evidence} onClick={() => ch.evidence && decide(c.id, ch.d, ch.evidence)}>
+                        근거와 함께 확정
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => closeChoice(c.id)}>
+                        취소
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <Button size="sm" className="flex-1" icon="check" onClick={() => decide(c.id, "approve")}>
+                    <Button size="sm" className="flex-1" icon="check" onClick={() => pick(c, "approve")}>
                       승인
                     </Button>
-                    <Button size="sm" variant="soft" className="flex-1" icon="pen" onClick={() => decide(c.id, "flip")}>
+                    <Button size="sm" variant="soft" className="flex-1" icon="pen" onClick={() => pick(c, "flip")}>
                       {withParticle(labelText[flip(c.suggested)])} 수정
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => decide(c.id, "exclude")}>
+                    <Button size="sm" variant="ghost" onClick={() => pick(c, "exclude")}>
                       제외
                     </Button>
                   </div>

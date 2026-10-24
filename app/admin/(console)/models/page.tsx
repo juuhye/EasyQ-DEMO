@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AdminTitle, Dot, Panel } from "@/components/admin";
 import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
@@ -26,6 +26,8 @@ export default function AdminModels() {
   const [selected, setSelected] = useState(versions[0].id);
   const sel = versions.find((v) => v.id === selected) ?? versions[0];
   const [training, setTraining] = useState<number | null>(null);
+  const [stopOpen, setStopOpen] = useState(false);
+  const trainTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [deploy, setDeploy] = useState<ModelVersion | null>(null);
   const [rollback, setRollback] = useState(false);
   const toast = useToast();
@@ -38,7 +40,7 @@ export default function AdminModels() {
 
   function retrain() {
     setTraining(0);
-    trainSteps.forEach((_, i) =>
+    trainTimers.current = trainSteps.map((_, i) =>
       setTimeout(() => {
         if (i < trainSteps.length - 1) return setTraining(i + 1);
         setTraining(null);
@@ -47,6 +49,15 @@ export default function AdminModels() {
         toast.show(`재학습 완료 · ${retrainedVersion.id}가 등록됐어요`, "mint");
       }, (i + 1) * 1300),
     );
+  }
+
+  // API-47: 진행 중인 재학습을 멈춘다. 새 버전은 만들어지지 않고 서빙 버전도 그대로다
+  function stopTraining() {
+    trainTimers.current.forEach(clearTimeout);
+    trainTimers.current = [];
+    setTraining(null);
+    setStopOpen(false);
+    toast.show("재학습을 중단했어요. 서빙 중인 버전은 그대로예요", "coral");
   }
 
   function switchTo(id: string) {
@@ -113,6 +124,9 @@ export default function AdminModels() {
                   </div>
                 ))}
                 <Progress value={((training + 0.5) / trainSteps.length) * 100} className="mt-3" color="bg-mint" />
+                <Button variant="ghost" size="sm" className="mt-3 w-full" icon="x" onClick={() => setStopOpen(true)}>
+                  재학습 중단
+                </Button>
               </div>
             ) : retrained ? (
               <p className="flex items-center gap-2 text-sm">
@@ -241,6 +255,18 @@ export default function AdminModels() {
           </Button>
           <Button className="flex-1" onClick={() => deploy && switchTo(deploy.id)}>
             배포하기
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={stopOpen} onClose={() => setStopOpen(false)} title="재학습을 중단할까요?">
+        <p className="text-sm leading-relaxed text-muted">학습서버의 작업을 멈추고 지금까지의 학습 결과는 버려요. 새 버전은 등록되지 않고, 서빙 중인 버전({serving?.id ?? "Sonnet 단독"})은 그대로예요. 검수한 라벨은 남아 있어 다시 실행할 수 있어요.</p>
+        <div className="mt-6 flex gap-2">
+          <Button variant="soft" className="flex-1" onClick={() => setStopOpen(false)}>
+            계속 학습
+          </Button>
+          <Button variant="danger" className="flex-1" onClick={stopTraining}>
+            중단하기
           </Button>
         </div>
       </Modal>

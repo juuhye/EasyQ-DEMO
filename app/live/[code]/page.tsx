@@ -1,12 +1,12 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Empty, RoundButton, Screen, Tabs, useToast } from "@/components/ui";
 import { SourceChips } from "@/components/SourceChips";
-import { SESSION_CAPACITY, cannedAnswers, findLectureByCode, statusOf, liveAiQuestions, livePublicQuestions, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
+import { SESSION_CAPACITY, cannedAnswers, resolveCode, statusOf, liveAiQuestions, livePublicQuestions, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 type Mine = {
@@ -30,12 +30,18 @@ function now() {
 
 export default function AudienceLive() {
   const { code } = useParams<{ code: string }>();
-  const { name, guestName, endedLectures } = useDemo();
-  const lecture = findLectureByCode(code);
+  const router = useRouter();
+  const { name, guestName, endedLectures, codes, joinedCode } = useDemo();
+  const { lecture, expired } = resolveCode(code, codes);
   const status = lecture ? statusOf(lecture, endedLectures) : null;
   // QR · 링크로 바로 들어와도 진행 중인 강의만 열린다. 참여 중에 종료되면 화면은 유지하고 질문만 막는다
   const full = !!lecture && lecture.audience >= SESSION_CAPACITY;
-  const [joinedLive] = useState(status === "live" && !full);
+  const [joinedLive] = useState(status === "live" && !full && !expired);
+  // 입장 절차(누구로 · 동의 · 게스트 표시명)를 거치지 않고 QR로 바로 왔으면 입장 화면으로 보낸다 (F1-7)
+  const needsEntry = joinedLive && joinedCode?.toUpperCase() !== code.toUpperCase();
+  useEffect(() => {
+    if (needsEntry) router.replace(`/join?code=${code.toUpperCase()}`);
+  }, [needsEntry, code, router]);
   const toast = useToast();
 
   const [tab, setTab] = useState<"ask" | "board" | "mine">("ask");
@@ -88,10 +94,14 @@ export default function AudienceLive() {
       .map((x) => x.q);
   }, [text, publicQs]);
 
+  if (needsEntry) return <Screen>{null}</Screen>;
+
   if (!lecture || !joinedLive) {
     const [emoji, title, desc] = !lecture
       ? ["🔍", "입장 코드를 찾을 수 없어요", "코드를 다시 확인하거나 강연자에게 QR을 요청해 주세요."]
-      : full && status === "live"
+      : expired
+        ? ["🔄", "더 이상 쓸 수 없는 QR이에요", "강연자가 QR을 새로 발급했어요. 강의실 화면의 새 QR이나 코드로 들어와 주세요."]
+        : full && status === "live"
         ? ["🪑", "정원이 다 찬 강의예요", `이 강의는 ${SESSION_CAPACITY}명까지 들어올 수 있어요. 자리가 나면 다시 들어와 주세요.`]
         : status === "ended"
           ? ["🏁", "이미 끝난 강의예요", "질문 접수가 마감됐어요. 참여했던 강의라면 보관함에서 기록을 볼 수 있어요."]
@@ -99,7 +109,7 @@ export default function AudienceLive() {
     return (
       <Screen>
         <Empty emoji={emoji} title={title} desc={desc}>
-          <Button href={status === "ended" ? "/archive" : "/join"}>{status === "ended" ? "보관함 보기" : "입장 코드 입력하기"}</Button>
+          <Button href={status === "ended" && !expired ? "/archive" : "/join"}>{status === "ended" && !expired ? "보관함 보기" : "입장 코드 입력하기"}</Button>
         </Empty>
       </Screen>
     );
