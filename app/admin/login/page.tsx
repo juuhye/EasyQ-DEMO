@@ -6,7 +6,7 @@ import { Logo, Sticker } from "@/components/Brand";
 import { Button, Field, Screen, inputCls } from "@/components/ui";
 import { adminAccount } from "@/lib/admin";
 import { login, type LoginField } from "@/lib/auth";
-import { setDemo } from "@/lib/store";
+import { setAdmin } from "@/lib/store";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function AdminLogin() {
     setLoading(false);
     if (!res.ok) return setError(res);
     setError(null);
-    setDemo({ admin: res.email });
+    setAdmin(res.email);
     router.push("/admin");
   }
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AdminTitle, Dot, Panel } from "@/components/admin";
 import { Avatar } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
-import { Button, Empty, Field, Modal, Pill, Progress, Tabs, inputCls, useToast } from "@/components/ui";
+import { Button, Empty, Field, Modal, Pill, Tabs, inputCls, useToast } from "@/components/ui";
 import { members as initialMembers, suspendReasons, type Member, type MemberStatus } from "@/lib/admin";
 
 const statusLabel: Record<MemberStatus, string> = { active: "정상", suspended: "정지", unverified: "미인증" };
@@ -38,7 +38,7 @@ export default function AdminMembers() {
   return (
     <>
       {toast.node}
-      <AdminTitle desc="회원을 찾아 정지 · 해제하고, 무료 사용 한도를 확인해요">회원 관리</AdminTitle>
+      <AdminTitle desc="회원을 찾아 정지 · 해제해요">회원 관리</AdminTitle>
 
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
         <div className="relative md:w-80">
@@ -67,7 +67,7 @@ export default function AdminMembers() {
                 <tr className="border-b border-line">
                   <th className="pb-2 font-medium">회원</th>
                   <th className="pb-2 font-medium">가입일</th>
-                  <th className="pb-2 font-medium">무료 한도</th>
+                  <th className="pb-2 text-right font-medium">만든 강의</th>
                   <th className="pb-2 text-right font-medium">질문</th>
                   <th className="pb-2 pl-4 font-medium">상태</th>
                   <th className="pb-2" />
@@ -86,14 +86,7 @@ export default function AdminMembers() {
                       </div>
                     </td>
                     <td className="py-3 text-ink/70">{m.joined}</td>
-                    <td className="w-44 py-3 pr-4">
-                      <div className="flex items-center gap-2">
-                        <Progress value={(m.used / m.limit) * 100} className="flex-1" color={m.used >= m.limit ? "bg-coral" : "bg-ink"} />
-                        <span className="w-9 text-right text-xs font-semibold">
-                          {m.used}/{m.limit}
-                        </span>
-                      </div>
-                    </td>
+                    <td className="py-3 text-right">{m.lectures}</td>
                     <td className="py-3 text-right">{m.questions}</td>
                     <td className="py-3 pl-4">
                       <Pill className="bg-paper">

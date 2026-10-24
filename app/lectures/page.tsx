@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
-import { Empty, PageTitle, Progress, RoundButton, Screen, StatusPill, Tabs } from "@/components/ui";
-import { freeUsage, lectures, type LectureStatus } from "@/lib/mock";
+import { Empty, PageTitle, RoundButton, Screen, StatusPill, Tabs } from "@/components/ui";
+import { lectures, type LectureStatus } from "@/lib/mock";
 import { useDemo } from "@/lib/store";
 
 export default function Lectures() {
@@ -19,30 +19,16 @@ export default function Lectures() {
     .filter((l) => !deletedLectures.includes(l.id))
     .map((l) => (endedLectures.includes(l.id) ? { ...l, status: "ended" as const, stats: l.stats ?? { questions: 19, ai: 9, forwarded: 10, likes: 142, retracted: 1 } } : l));
   const list = all.filter((l) => l.status === tab);
-  const used = freeUsage.used + (created ? 1 : 0);
-  const full = used >= freeUsage.limit;
 
   return (
     <Screen nav>
-      <PageTitle meta={`${all.length}개 강의`} action={full ? undefined : <RoundButton href="/lectures/new" icon="plus" label="새 강의" />}>
+      <PageTitle meta={`${all.length}개 강의`} action={<RoundButton href="/lectures/new" icon="plus" label="새 강의" />}>
         내 강의
       </PageTitle>
 
       <div className="px-5">
-        <div className="mt-6 rounded-[22px] bg-white p-4">
-          <div className="flex items-baseline justify-between text-sm">
-            <span className="font-semibold">무료 사용</span>
-            <span>
-              <b>{used}</b>
-              <span className="text-muted"> / {freeUsage.limit}개</span>
-            </span>
-          </div>
-          <Progress value={(used / freeUsage.limit) * 100} className="mt-2.5" color={full ? "bg-coral" : "bg-ink"} />
-          <p className="mt-2 text-xs text-muted">{full ? "한도를 모두 썼어요. 새 강의를 만들 수 없어요." : `승인 없이 ${freeUsage.limit - used}개 더 만들 수 있어요`}</p>
-        </div>
-
         <Tabs
-          className="mt-5"
+          className="mt-6"
           value={tab}
           onChange={setTab}
           tabs={[

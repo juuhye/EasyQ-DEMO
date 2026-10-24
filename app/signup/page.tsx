@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Field, Screen, TopBar, inputCls, useToast } from "@/components/ui";
+import { setDemo } from "@/lib/store";
 
 const rules = [
   { label: "8자 이상", test: (p: string) => p.length >= 8 },
@@ -14,7 +15,8 @@ const rules = [
 const consents = [
   { key: "terms", label: "서비스 이용약관 동의", required: true },
   { key: "privacy", label: "개인정보 수집 · 이용 동의", required: true },
-  { key: "data", label: "질문 데이터 보관 · 익명 학습 활용 동의", required: true },
+  { key: "keep", label: "질문 · 답변 기록 보관 동의", required: true },
+  { key: "learn", label: "AI 개선을 위한 익명 활용 동의", required: false },
 ];
 
 export default function Signup() {
@@ -28,11 +30,14 @@ export default function Signup() {
 
   const pwOk = rules.every((r) => r.test(pw));
   const allAgree = consents.every((c) => agree[c.key]);
-  const valid = name.trim() && email.includes("@") && pwOk && allAgree;
+  const requiredAgree = consents.every((c) => !c.required || agree[c.key]);
+  const valid = name.trim() && email.includes("@") && pwOk && requiredAgree;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (email === "juhye@gachon.ac.kr") return setEmailError("이미 가입된 이메일이에요.");
+    // 동의는 계정 단위로 저장하고, 입장할 때 다시 묻지 않는다
+    setDemo({ consent: { keep: true, learn: !!agree.learn } });
     setStep("sent");
   }
 
@@ -118,13 +123,13 @@ export default function Signup() {
             <button key={c.key} type="button" onClick={() => setAgree((a) => ({ ...a, [c.key]: !a[c.key] }))} className="flex w-full items-center gap-3 pt-3 text-left text-sm">
               <Check on={!!agree[c.key]} small />
               <span className="flex-1">
-                <span className="text-muted">필수</span> {c.label}
+                <span className={c.required ? "font-semibold text-coral-ink" : "text-muted"}>{c.required ? "(필수)" : "(선택)"}</span> {c.label}
               </span>
               <Icon name="right" size={16} className="text-muted" />
             </button>
           ))}
           <p className="mt-3 rounded-2xl bg-paper p-3 text-xs leading-relaxed text-muted">
-            음성 원본은 저장하지 않아요. 세션 데이터는 보유 기간이 지나면 자동으로 지워지고, 학습에는 개인정보를 뺀 익명 데이터만 써요.
+            음성 원본은 저장하지 않아요. 세션 데이터는 보유 기간이 지나면 자동으로 지워지고, 학습에는 개인정보를 뺀 익명 데이터만 써요. 여기서 동의한 내용은 강의에 입장할 때마다 다시 묻지 않고, 마이페이지에서 바꿀 수 있어요.
           </p>
         </div>
 

@@ -6,7 +6,7 @@ import { Avatar, Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Empty, Modal, RoundButton, Screen, Tabs, useToast } from "@/components/ui";
 import { SourceChips } from "@/components/SourceChips";
-import { cannedAnswers, findLectureByCode, liveAiQuestions, livePublicQuestions, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
+import { cannedAnswers, resolveCode, statusOf, liveAiQuestions, livePublicQuestions, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 type Mine = {
@@ -22,7 +22,6 @@ type Mine = {
 
 type Noti = { id: string; text: string; tone: "mint" | "coral"; read: boolean };
 
-const MAX = 200;
 const COOLDOWN = 10;
 
 function now() {
@@ -32,8 +31,11 @@ function now() {
 
 export default function AudienceLive() {
   const { code } = useParams<{ code: string }>();
-  const lecture = findLectureByCode(code);
-  const { name, guestName, endedLectures } = useDemo();
+  const { name, guestName, endedLectures, codes } = useDemo();
+  const { lecture, expired } = resolveCode(code, codes);
+  const status = lecture ? statusOf(lecture, endedLectures) : null;
+  // QR · 링크로 바로 들어와도 진행 중인 강의만 열린다. 참여 중에 종료되면 화면은 유지하고 질문만 막는다
+  const [joinedLive] = useState(status === "live");
   const toast = useToast();
 
   const [tab, setTab] = useState<"ask" | "board" | "mine">("ask");
@@ -48,7 +50,7 @@ export default function AudienceLive() {
   const [cooldown, setCooldown] = useState(0);
   const [sort, setSort] = useState<"likes" | "page">("likes");
   // 강연자나 관리자가 강의를 종료하면 청중 화면에도 반영
-  const ended = !!lecture && endedLectures.includes(lecture.id);
+  const ended = status === "ended";
 
   // 실시간 이벤트 시뮬레이션: 다른 청중의 공감, 강연자 답변 완료, AI 답변 철회
   const showToast = toast.show;
@@ -101,14 +103,22 @@ export default function AudienceLive() {
       .map((x) => x.q);
   }, [text, publicQs]);
 
-  if (!lecture)
+  if (!lecture || expired || !joinedLive) {
+    const [emoji, title, desc] = !lecture
+      ? ["🔍", "입장 코드를 찾을 수 없어요", "코드를 다시 확인하거나 강연자에게 QR을 요청해 주세요."]
+      : expired
+        ? ["🔄", "더 이상 쓸 수 없는 QR이에요", "강연자가 QR을 새로 발급했어요. 강의실 화면의 새 QR이나 코드로 들어와 주세요."]
+        : status === "ended"
+          ? ["🏁", "이미 끝난 강의예요", "질문 접수가 마감됐어요. 참여했던 강의라면 보관함에서 기록을 볼 수 있어요."]
+          : ["⏳", "아직 시작 전인 강의예요", "강연자가 강의를 시작하면 이 QR로 들어올 수 있어요."];
     return (
       <Screen>
-        <Empty emoji="🔍" title="입장 코드를 찾을 수 없어요" desc="코드를 다시 확인하거나 강연자에게 QR을 요청해 주세요.">
-          <Button href="/join">다시 입력하기</Button>
+        <Empty emoji={emoji} title={title} desc={desc}>
+          <Button href={status === "ended" ? "/archive" : "/join"}>{status === "ended" && !expired ? "보관함 보기" : "입장 코드 입력하기"}</Button>
         </Empty>
       </Screen>
     );
+  }
 
   function like(id: string) {
     const q = publicQs.find((x) => x.id === id);
@@ -127,7 +137,6 @@ export default function AudienceLive() {
     const t = text.trim();
     if (ended) return toast.show("강의가 끝나 더 이상 질문할 수 없어요");
     if (!t) return;
-    if (t.length > MAX) return toast.show(`질문은 ${MAX}자까지 쓸 수 있어요`);
     if (cooldown > 0) return toast.show(`${cooldown}초 뒤에 다시 질문할 수 있어요`);
 
     const id = crypto.randomUUID();
@@ -217,10 +226,7 @@ export default function AudienceLive() {
                 placeholder="궁금한 걸 편하게 적어보세요. 교안 내용이면 AI가 먼저 답해줘요."
                 className="w-full resize-none bg-transparent text-[17px] leading-relaxed outline-none placeholder:text-ink/30"
               />
-              <div className="flex items-center justify-between pt-2">
-                <span className={`text-xs ${text.length > MAX ? "text-[#e5484d]" : "text-muted"}`}>
-                  {text.length}/{MAX}
-                </span>
+              <div className="flex justify-end pt-2">
                 <Button size="sm" icon="send" onClick={submit} disabled={!text.trim() || ended}>
                   {cooldown > 0 ? `${cooldown}초 후 가능` : "보내기"}
                 </Button>
@@ -443,7 +449,6 @@ function BoardBubble({ q, i, total, onLike }: { q: PublicQuestion; i: number; to
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              maxLength={MAX}
               autoFocus
               placeholder="나만 보는 메모 · 강의가 끝나면 보관함에 남아요"
               className="h-11 min-w-0 flex-1 rounded-full bg-white px-4 text-sm outline-none placeholder:text-ink/30"

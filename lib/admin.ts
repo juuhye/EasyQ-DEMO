@@ -34,25 +34,24 @@ export type Member = {
   name: string;
   email: string;
   joined: string;
-  used: number;
-  limit: number;
+  lectures: number; // 만든 강의 수
   questions: number;
   status: MemberStatus;
   suspendReason?: string;
 };
 
 export const members: Member[] = [
-  { id: "u1", name: "주혜", email: "juhye@gachon.ac.kr", joined: "2026.09.18", used: 4, limit: 5, questions: 12, status: "active" },
-  { id: "u2", name: "김서연", email: "seoyeon.k@gachon.ac.kr", joined: "2026.09.20", used: 5, limit: 5, questions: 3, status: "active" },
-  { id: "u3", name: "박도윤", email: "doyoon@gachon.ac.kr", joined: "2026.09.21", used: 3, limit: 5, questions: 0, status: "active" },
-  { id: "u4", name: "이하준", email: "hajun@startup.kr", joined: "2026.09.25", used: 1, limit: 5, questions: 7, status: "active" },
-  { id: "u5", name: "최민지", email: "minji.c@gachon.ac.kr", joined: "2026.09.26", used: 2, limit: 5, questions: 1, status: "active" },
-  { id: "u6", name: "정우진", email: "woojin@example.com", joined: "2026.10.03", used: 0, limit: 5, questions: 46, status: "suspended", suspendReason: "같은 강의에서 욕설이 담긴 질문을 반복 제출" },
-  { id: "u7", name: "한지수", email: "jisu.h@gachon.ac.kr", joined: "2026.10.11", used: 0, limit: 5, questions: 0, status: "unverified" },
-  { id: "u8", name: "오세훈", email: "sehoon.o@gachon.ac.kr", joined: "2026.10.14", used: 1, limit: 5, questions: 22, status: "active" },
+  { id: "u1", name: "주혜", email: "juhye@gachon.ac.kr", joined: "2026.09.18", lectures: 4, questions: 12, status: "active" },
+  { id: "u2", name: "김서연", email: "seoyeon.k@gachon.ac.kr", joined: "2026.09.20", lectures: 5, questions: 3, status: "active" },
+  { id: "u3", name: "박도윤", email: "doyoon@gachon.ac.kr", joined: "2026.09.21", lectures: 3, questions: 0, status: "active" },
+  { id: "u4", name: "이하준", email: "hajun@startup.kr", joined: "2026.09.25", lectures: 1, questions: 7, status: "active" },
+  { id: "u5", name: "최민지", email: "minji.c@gachon.ac.kr", joined: "2026.09.26", lectures: 2, questions: 1, status: "active" },
+  { id: "u6", name: "정우진", email: "woojin@example.com", joined: "2026.10.03", lectures: 0, questions: 46, status: "suspended", suspendReason: "같은 강의에서 욕설이 담긴 질문을 반복 제출" },
+  { id: "u7", name: "한지수", email: "jisu.h@gachon.ac.kr", joined: "2026.10.11", lectures: 0, questions: 0, status: "unverified" },
+  { id: "u8", name: "오세훈", email: "sehoon.o@gachon.ac.kr", joined: "2026.10.14", lectures: 1, questions: 22, status: "active" },
 ];
 
-export const suspendReasons = ["부적절한 질문 반복 제출", "무료 한도 우회(다중 계정)", "타인 사칭", "기타"];
+export const suspendReasons = ["부적절한 질문 반복 제출", "다중 계정으로 악용", "타인 사칭", "기타"];
 
 // ── F9-3 세션 관리 ────────────────────────────────
 
@@ -163,15 +162,20 @@ export type LabelCandidate = {
   score: number;
   suggested: LabelKind;
   evidence?: string;
+  // 답변 가능으로 확정할 때 검수자가 고르는 정답 근거 후보 (교안 · 발화)
+  evidenceOptions: string[];
 };
 
+// 판정 모델이 AI 답변 가능으로 보는 점수 기준. 검수는 이 값 바로 아래부터 본다
+export const judgeThreshold = 0.7;
+
 export const labelCandidates: LabelCandidate[] = [
-  { id: "c1", question: "멀티헤드 어텐션은 헤드 수가 많을수록 항상 좋아지나요?", lecture: "인공지능 개론 7주차", origin: "철회", predicted: "answerable", score: 0.81, suggested: "forward", evidence: "교안 16p: h = 8 설정만 있고 일반화 근거 없음" },
-  { id: "c2", question: "어텐션 시각화한 그림에서 왜 대각선이 유독 진한가요?", lecture: "인공지능 개론 7주차", origin: "이관", predicted: "forward", score: 0.42, suggested: "answerable", evidence: "발화 14:26: 자기 자신과의 유사도가 가장 높아서 대각선이 진해요" },
-  { id: "c3", question: "setState가 비동기라는 게 정확히 무슨 뜻인가요?", lecture: "웹 프로그래밍 6주차", origin: "피드백 👎", predicted: "answerable", score: 0.77, suggested: "answerable", evidence: "교안 7p: 배치 업데이트 설명 — 답변 문장 품질 문제로 판단" },
-  { id: "c4", question: "4P 중에 요즘 제일 중요한 건 뭐라고 보세요?", lecture: "경영학원론 · 마케팅 믹스", origin: "이관", predicted: "forward", score: 0.18, suggested: "forward" },
-  { id: "c5", question: "NeRF 학습에 GPU 몇 장 쓰셨어요?", lecture: "컴퓨터 비전 특강 · NeRF", origin: "피드백 👎", predicted: "answerable", score: 0.63, suggested: "forward", evidence: "교안 · 발화 모두 해당 내용 없음 — 추측성 답변" },
-  { id: "c6", question: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", lecture: "웹 프로그래밍 6주차", origin: "이관", predicted: "forward", score: 0.47, suggested: "answerable", evidence: "교안 18p: Context 값 변경 시 구독 컴포넌트 전체 리렌더" },
+  { id: "c1", question: "멀티헤드 어텐션은 헤드 수가 많을수록 항상 좋아지나요?", lecture: "인공지능 개론 7주차", origin: "철회", predicted: "answerable", score: 0.81, suggested: "forward", evidence: "교안 16p: h = 8 설정만 있고 일반화 근거 없음", evidenceOptions: ["교안 16p: Multi-Head: h = 8, dₖ = d_model / h = 64", "발화 14:23: 헤드를 나누면 서로 다른 관계를 동시에 볼 수 있어요"] },
+  { id: "c2", question: "어텐션 시각화한 그림에서 왜 대각선이 유독 진한가요?", lecture: "인공지능 개론 7주차", origin: "이관", predicted: "forward", score: 0.42, suggested: "answerable", evidence: "발화 14:26: 자기 자신과의 유사도가 가장 높아서 대각선이 진해요", evidenceOptions: ["발화 14:26: 자기 자신과의 유사도가 가장 높아서 대각선이 진해요", "교안 19p: 어텐션 가중치 시각화 그림"] },
+  { id: "c3", question: "setState가 비동기라는 게 정확히 무슨 뜻인가요?", lecture: "웹 프로그래밍 6주차", origin: "피드백 👎", predicted: "answerable", score: 0.77, suggested: "answerable", evidence: "교안 7p: 배치 업데이트 설명 — 답변 문장 품질 문제로 판단", evidenceOptions: ["교안 7p: setState는 바로 반영되지 않고 배치로 모아 업데이트해요", "발화 13:22: 다음 렌더에서 새 값이 보여요"] },
+  { id: "c4", question: "4P 중에 요즘 제일 중요한 건 뭐라고 보세요?", lecture: "경영학원론 · 마케팅 믹스", origin: "이관", predicted: "forward", score: 0.18, suggested: "forward", evidenceOptions: ["교안 5p: 마케팅 믹스 4P 정의"] },
+  { id: "c5", question: "NeRF 학습에 GPU 몇 장 쓰셨어요?", lecture: "컴퓨터 비전 특강 · NeRF", origin: "피드백 👎", predicted: "answerable", score: 0.63, suggested: "forward", evidence: "교안 · 발화 모두 해당 내용 없음 — 추측성 답변", evidenceOptions: ["교안 3p: NeRF 학습 과정 개요"] },
+  { id: "c6", question: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", lecture: "웹 프로그래밍 6주차", origin: "이관", predicted: "forward", score: 0.47, suggested: "answerable", evidence: "교안 18p: Context 값 변경 시 구독 컴포넌트 전체 리렌더", evidenceOptions: ["교안 18p: Context 값이 바뀌면 구독 컴포넌트 전체가 리렌더돼요", "발화 13:41: 값을 쪼개 Provider를 나누면 리렌더를 줄일 수 있어요"] },
 ];
 
 export const labelText: Record<LabelKind, string> = { answerable: "AI 답변 가능", forward: "강연자 이관" };
@@ -216,6 +220,6 @@ export function rocPoints(auc: number, n = 24) {
 
 export const adminInquiries = [
   { id: "i1", title: "교안 PPTX 업로드가 실패해요", from: "주혜", date: "2026.10.09", body: "40MB 정도 되는 PPTX를 올렸는데 계속 실패라고 떠요.", answer: "PPTX 안의 이미지가 커서 용량 제한(50MB)을 넘었어요. PDF로 저장해 올려 주세요." },
-  { id: "i2", title: "무료 한도를 늘릴 수 있나요?", from: "김서연", date: "2026.10.18", body: "한 학기 수업을 모두 EasyQ로 진행하고 싶은데 5개로는 부족해요." },
+  { id: "i2", title: "지난 강의를 복사해서 새로 만들 수 있나요?", from: "김서연", date: "2026.10.18", body: "매주 같은 교안 구성으로 강의를 여는데, 용어 사전까지 다시 만들어야 해서 번거로워요." },
   { id: "i3", title: "AI 답변이 교안과 다른 말을 해요", from: "오세훈", date: "2026.10.21", body: "마케팅 믹스 강의에서 4P 설명이 교안 정의와 조금 달랐어요. 철회는 했는데 다른 청중도 봤을까 걱정돼요." },
 ];

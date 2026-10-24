@@ -5,9 +5,9 @@ import { useEffect, useState } from "react";
 import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { SummaryNote } from "@/components/SummaryNote";
-import { Button, Empty, Modal, RoundButton, Screen, StatusPill, Tabs, TopBar } from "@/components/ui";
+import { Button, Empty, Modal, RoundButton, Screen, StatusPill, Tabs, TopBar, useToast } from "@/components/ui";
 import { archive, findLecture, pageHistogram, pastQuestionLog, transformerNote } from "@/lib/mock";
-import { setDemo } from "@/lib/store";
+import { setDemo, useDemo } from "@/lib/store";
 
 export default function Report() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +17,10 @@ export default function Report() {
   const [tab, setTab] = useState<"stats" | "note" | "log">(justEnded ? "note" : "stats");
   const [noteReady, setNoteReady] = useState(!justEnded);
   const [del, setDel] = useState(false);
+  const [delQ, setDelQ] = useState<string | null>(null);
+  const { deletedQuestions } = useDemo();
+  const toast = useToast();
+  const log = pastQuestionLog.filter((q) => !deletedQuestions.includes(q.text));
 
   useEffect(() => {
     if (noteReady) return;
@@ -39,6 +43,7 @@ export default function Report() {
 
   return (
     <Screen>
+      {toast.node}
       <TopBar
         back="/lectures"
         title="강의 리포트"
@@ -78,7 +83,7 @@ export default function Report() {
           tabs={[
             { value: "stats", label: "통계" },
             { value: "note", label: "요약 노트" },
-            { value: "log", label: "질문 기록" },
+            { value: "log", label: "질문 기록", count: log.length },
           ]}
         />
 
@@ -148,7 +153,8 @@ export default function Report() {
 
         {tab === "log" && (
           <div className="animate-rise space-y-2.5 pt-4">
-            {pastQuestionLog.map((q) => (
+            {log.length === 0 && <Empty title="남은 질문 기록이 없어요" />}
+            {log.map((q) => (
               <div key={q.text} className="flex items-center gap-3 rounded-[24px] bg-white p-4">
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${q.kind === "ai" ? "bg-mint" : "bg-coral"}`}>
                   <Icon name={q.kind === "ai" ? "spark" : "chat"} size={17} />
@@ -159,6 +165,9 @@ export default function Report() {
                     교안 {q.page}p · {q.kind === "ai" ? "AI 답변" : `강연자 답변 · 공감 ${q.likes}`}
                   </p>
                 </div>
+                <button onClick={() => setDelQ(q.text)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-ink/5" aria-label="질문 기록 삭제">
+                  <Icon name="trash" size={16} />
+                </button>
               </div>
             ))}
           </div>
@@ -168,6 +177,28 @@ export default function Report() {
           <Icon name="trash" size={15} /> 이 강의의 세션 데이터 삭제
         </button>
       </div>
+
+      <Modal open={!!delQ} onClose={() => setDelQ(null)} title="이 질문 기록을 지울까요?">
+        <p className="rounded-2xl bg-white p-3.5 font-bold">{delQ}</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted">질문과 답변이 이 강의 기록에서 바로 지워지고 되돌릴 수 없어요. 청중 보관함에 저장된 개인 기록은 남아요.</p>
+        <div className="mt-6 flex gap-2">
+          <Button variant="soft" className="flex-1" onClick={() => setDelQ(null)}>
+            취소
+          </Button>
+          <Button
+            variant="danger"
+            className="flex-1"
+            onClick={() => {
+              const text = delQ;
+              if (text) setDemo((s) => ({ deletedQuestions: [...s.deletedQuestions, text] }));
+              setDelQ(null);
+              toast.show("질문 기록을 지웠어요");
+            }}
+          >
+            지우기
+          </Button>
+        </div>
+      </Modal>
 
       <Modal open={del} onClose={() => setDel(false)} title="세션 데이터를 삭제할까요?">
         <p className="text-sm leading-relaxed text-muted">질문, AI 답변, 발화 기록, 교안 인덱스가 바로 지워지고 되돌릴 수 없어요. 청중 보관함에 이미 저장된 개인 기록은 남아요.</p>

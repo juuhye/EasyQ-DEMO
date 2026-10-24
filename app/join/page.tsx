@@ -5,14 +5,15 @@ import { useState } from "react";
 import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, PageTitle, Screen, StatusPill, TopBar, inputCls } from "@/components/ui";
-import { findLectureByCode, type Lecture } from "@/lib/mock";
+import { lectures, resolveCode, statusOf, type Lecture } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
-type Step = "code" | "consent" | "who";
+// 회원은 가입 때 계정 단위로 동의했으니 바로 입장하고, 게스트만 입장할 때마다 동의를 받는다
+type Step = "code" | "who" | "consent";
 
 export default function Join() {
   const router = useRouter();
-  const { name } = useDemo();
+  const { name, codes, endedLectures } = useDemo();
   const [step, setStep] = useState<Step>("code");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -22,27 +23,30 @@ export default function Join() {
   const [scanning, setScanning] = useState(false);
 
   function check(c: string) {
-    const l = findLectureByCode(c.trim());
+    const { lecture: l, expired } = resolveCode(c, codes);
     if (!l) return setError("입장 코드를 찾을 수 없어요. 다시 확인해 주세요.");
-    if (l.status === "ended") return setError("이미 끝난 강의예요. 보관함에서 기록을 볼 수 있어요.");
-    if (l.status === "ready") return setError("아직 시작 전인 강의예요. 강연자가 시작하면 들어올 수 있어요.");
+    if (expired) return setError("재발급돼서 더 이상 쓸 수 없는 코드예요. 강연자 화면의 새 코드를 입력해 주세요.");
+    const status = statusOf(l, endedLectures);
+    if (status === "ended") return setError("이미 끝난 강의예요. 보관함에서 기록을 볼 수 있어요.");
+    if (status === "ready") return setError("아직 시작 전인 강의예요. 강연자가 시작하면 들어올 수 있어요.");
     setLecture(l);
-    setStep("consent");
+    setStep("who");
   }
 
   function scan() {
     setScanning(true);
     setTimeout(() => {
       setScanning(false);
-      setCode("QX7K2");
-      check("QX7K2");
+      const live = codes[lectures[0].id] ?? lectures[0].code;
+      setCode(live);
+      check(live);
     }, 1400);
   }
 
   function enter(asGuest: boolean) {
     if (!lecture) return;
     setDemo({ guestName: asGuest ? nick.trim() || "익명의 청중" : null });
-    router.push(`/s/${lecture.code}`);
+    router.push(`/s/${codes[lecture.id] ?? lecture.code}`);
   }
 
   return (
@@ -50,7 +54,7 @@ export default function Join() {
       {step === "code" ? (
         <PageTitle meta={<span className="text-muted">QR · 코드</span>}>입장</PageTitle>
       ) : (
-        <TopBar back={undefined} title={step === "consent" ? "입장 전 확인" : "어떻게 들어갈까요?"} right={<button onClick={() => setStep(step === "who" ? "consent" : "code")} className="rounded-full bg-sand px-4 py-2 text-sm font-semibold">이전</button>} />
+        <TopBar back={undefined} title={step === "consent" ? "입장 전 확인" : "어떻게 들어갈까요?"} right={<button onClick={() => setStep(step === "consent" ? "who" : "code")} className="rounded-full bg-sand px-4 py-2 text-sm font-semibold">이전</button>} />
       )}
 
       {step === "code" && (
@@ -109,22 +113,9 @@ export default function Join() {
 
       {step === "consent" && lecture && (
         <div className="flex flex-1 flex-col px-5 pb-8">
-          <Bubble tone={lecture.tone} className="mt-1">
-            <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1">
-                <StatusPill status={lecture.status} onColor />
-                <p className="mt-2.5 text-[22px] font-extrabold leading-tight tracking-[-0.04em]">{lecture.title}</p>
-                <p className="mt-1 text-sm text-ink/60">
-                  {lecture.date} {lecture.time} · {lecture.audience}명 참여 중
-                </p>
-              </div>
-              <Sticker size={44} rotate={10}>
-                {lecture.emoji}
-              </Sticker>
-            </div>
-          </Bubble>
+          <LectureCard lecture={lecture} />
 
-          <p className="mt-10 text-[19px] font-bold tracking-[-0.03em]">들어가기 전에 확인해 주세요</p>
+          <p className="mt-10 text-[19px] font-bold tracking-[-0.03em]">게스트로 들어가기 전에 확인해 주세요</p>
           <div className="mt-3 space-y-2">
             <Consent
               on={agree.keep}
@@ -143,15 +134,16 @@ export default function Join() {
           </div>
           <p className="mt-3 text-xs text-muted">필수 항목에 동의해야 입장할 수 있어요. 선택 항목은 동의하지 않아도 돼요.</p>
 
-          <Button size="lg" className="mt-auto w-full" disabled={!agree.keep} onClick={() => setStep("who")}>
-            동의하고 계속
+          <Button size="lg" className="mt-auto w-full" disabled={!agree.keep} onClick={() => enter(true)}>
+            동의하고 입장
           </Button>
         </div>
       )}
 
       {step === "who" && lecture && (
         <div className="flex flex-1 flex-col px-5 pb-8">
-          <h2 className="mt-2 text-[34px] font-extrabold leading-[1.1] tracking-[-0.05em]">
+          <LectureCard lecture={lecture} />
+          <h2 className="mt-8 text-[34px] font-extrabold leading-[1.1] tracking-[-0.05em]">
             누구로
             <br />
             <span className="text-ink/35">들어갈까요?</span>
@@ -162,7 +154,7 @@ export default function Join() {
             </Sticker>
             <span className="flex-1">
               <span className="block text-lg font-bold">{name}님으로 입장</span>
-              <span className="text-sm text-white/55">질문과 요약 노트가 내 보관함에 남아요</span>
+              <span className="text-sm text-white/55">가입 때 동의한 내용으로 바로 들어가요. 질문과 요약 노트가 보관함에 남아요</span>
             </span>
             <Icon name="right" className="text-white/50" />
           </button>
@@ -174,13 +166,13 @@ export default function Join() {
               </Sticker>
               <div>
                 <p className="text-lg font-bold">게스트로 입장</p>
-                <p className="text-sm text-muted">로그인 없이 바로 질문해요. 기록은 남지 않아요.</p>
+                <p className="text-sm text-muted">로그인 없이 질문해요. 입장할 때마다 동의를 받고, 보관함은 없어요.</p>
               </div>
             </div>
             <div className="mt-4 flex gap-2">
               <input className={`${inputCls} min-w-0 flex-1 !bg-paper !py-3`} value={nick} onChange={(e) => setNick(e.target.value)} placeholder="닉네임 (선택)" maxLength={12} />
-              <Button onClick={() => enter(true)} className="shrink-0">
-                입장
+              <Button onClick={() => setStep("consent")} className="shrink-0">
+                다음
               </Button>
             </div>
           </div>
@@ -203,5 +195,24 @@ function Consent({ on, onClick, title, desc, required }: { on: boolean; onClick:
         <span className="mt-1 block text-sm leading-relaxed text-muted">{desc}</span>
       </span>
     </button>
+  );
+}
+
+function LectureCard({ lecture }: { lecture: Lecture }) {
+  return (
+    <Bubble tone={lecture.tone} className="mt-1">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <StatusPill status={lecture.status} onColor />
+          <p className="mt-2.5 text-[22px] font-extrabold leading-tight tracking-[-0.04em]">{lecture.title}</p>
+          <p className="mt-1 text-sm text-ink/60">
+            {lecture.date} {lecture.time} · {lecture.audience}명 참여 중
+          </p>
+        </div>
+        <Sticker size={44} rotate={10}>
+          {lecture.emoji}
+        </Sticker>
+      </div>
+    </Bubble>
   );
 }

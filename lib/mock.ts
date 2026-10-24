@@ -102,14 +102,28 @@ export const lectures: Lecture[] = [
   },
 ];
 
-export const freeUsage = { used: 4, limit: 5 };
-
 export function findLecture(id: string) {
   return lectures.find((l) => l.id === id);
 }
 
-export function findLectureByCode(code: string) {
-  return lectures.find((l) => l.code.toLowerCase() === code.toLowerCase());
+// 입장 코드로 강의를 찾는다. 재발급된 강의의 이전 코드는 expired로 돌려준다
+export function resolveCode(code: string, codes: Record<string, string>) {
+  const c = code.trim().toUpperCase();
+  const lecture = lectures.find((l) => (codes[l.id] ?? l.code) === c);
+  if (lecture) return { lecture, expired: false };
+  const old = lectures.find((l) => codes[l.id] && l.code === c);
+  return { lecture: old, expired: !!old };
+}
+
+// 강연자 · 관리자가 종료한 강의까지 반영한 상태
+export function statusOf(l: Lecture, endedLectures: string[]): LectureStatus {
+  return endedLectures.includes(l.id) ? "ended" : l.status;
+}
+
+// 입장 코드 재발급용. 헷갈리는 글자(0 · O · 1 · I)는 뺀다
+export function newCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
 // ── 질문 ──────────────────────────────────────────
@@ -413,7 +427,6 @@ export const pageHistogram = [
 
 export const notices = [
   { id: "n1", title: "EasyQ 베타 오픈 안내", date: "2026.10.01", body: "가천대 실무프로젝트 EasyQ 베타가 열렸어요. 강의를 만들고 QR로 청중을 초대해 보세요." },
-  { id: "n2", title: "무료 사용 한도 안내", date: "2026.10.05", body: "베타 기간에는 회원당 강의 5개까지 무료로 만들 수 있어요. 한도는 운영 상황에 따라 바뀔 수 있어요." },
   { id: "n3", title: "10/20 새벽 점검", date: "2026.10.12", body: "10월 20일 02:00~04:00 서버 점검이 있어요. 이 시간에는 강의를 진행할 수 없어요." },
 ];
 

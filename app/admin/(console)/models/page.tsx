@@ -5,10 +5,10 @@ import { AdminTitle, Dot, Panel } from "@/components/admin";
 import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Modal, Pill, Progress, useToast } from "@/components/ui";
-import { baseline, labelCandidates, modelVersions, retrainedVersion, rocPoints, targets, type ModelVersion } from "@/lib/admin";
+import { baseline, modelVersions, retrainedVersion, rocPoints, targets, type ModelVersion } from "@/lib/admin";
 import { setDemo, useDemo } from "@/lib/store";
 
-const trainSteps = ["검수 데이터 병합", "판정 모델 파인튜닝", "같은 시험셋으로 평가", "경량화 · 버전 등록"];
+const trainSteps = ["ds-v4 불러오기", "판정 모델 파인튜닝", "같은 시험셋으로 평가", "경량화 · 버전 등록"];
 
 // 새 버전은 서빙 중인 버전보다 성능이 같거나 좋을 때만 배포할 수 있다 (F12-4)
 function gate(v: ModelVersion, serving: ModelVersion) {
@@ -20,7 +20,7 @@ function gate(v: ModelVersion, serving: ModelVersion) {
 }
 
 export default function AdminModels() {
-  const { servingVersion, retrained, labelDecisions } = useDemo();
+  const { servingVersion, retrained, merged, servedVersions } = useDemo();
   const versions = retrained ? [retrainedVersion, ...modelVersions] : modelVersions;
   const serving = versions.find((v) => v.id === servingVersion) ?? null;
   const [selected, setSelected] = useState(versions[0].id);
@@ -30,7 +30,8 @@ export default function AdminModels() {
   const [rollback, setRollback] = useState(false);
   const toast = useToast();
 
-  const accepted = labelCandidates.filter((c) => labelDecisions[c.id] && labelDecisions[c.id] !== "exclude").length;
+  // 롤백은 이전에 서빙했던 버전으로만 (설계 2.4.3). 한 번도 서빙하지 않은 버전은 배포 관문을 거쳐야 한다
+  const rollbackTargets = versions.filter((v) => v.id !== servingVersion && servedVersions.includes(v.id));
   const compareTo = serving ?? baseline;
   const blocked = sel.id === servingVersion ? [] : gate(sel, compareTo);
 
@@ -48,7 +49,7 @@ export default function AdminModels() {
   }
 
   function switchTo(id: string) {
-    setDemo({ servingVersion: id });
+    setDemo((s) => ({ servingVersion: id, servedVersions: s.servedVersions.includes(id) ? s.servedVersions : [...s.servedVersions, id] }));
     setDeploy(null);
     setRollback(false);
     toast.show(id === "sonnet" ? "Sonnet 단독 판정으로 전환했어요" : `${id}로 서빙 버전을 바꿨어요`, id === "sonnet" ? "coral" : "mint");
@@ -119,13 +120,13 @@ export default function AdminModels() {
             ) : (
               <>
                 <div className="rounded-2xl bg-paper p-3 text-sm">
-                  <p className="font-semibold">ds-v3 + 검수 라벨 {accepted}건 → ds-v4</p>
+                  <p className="font-semibold">{merged ? "ds-v4로 재학습" : "병합된 새 데이터셋이 없어요"}</p>
                   <p className="mt-0.5 text-xs text-muted">학습서버 API로 요청해요. 실패하면 기존 버전을 그대로 써요.</p>
                 </div>
-                <Button className="mt-3 w-full" icon="play" disabled={accepted === 0} onClick={retrain}>
+                <Button className="mt-3 w-full" icon="play" disabled={!merged} onClick={retrain}>
                   재학습 실행
                 </Button>
-                {accepted === 0 && <p className="mt-2 text-center text-xs text-muted">데이터 · 라벨 화면에서 라벨을 1건 이상 검수해 주세요</p>}
+                {!merged && <p className="mt-2 text-center text-xs text-muted">데이터 · 라벨 화면에서 검수 라벨을 병합해 주세요</p>}
               </>
             )}
           </Panel>
@@ -198,6 +199,9 @@ export default function AdminModels() {
                   <Row label="판정 지연" a={sel.latency} b={compareTo.latency} c={baseline.latency} fmt={(n) => `${n}ms`} />
                 </tbody>
               </table>
+              <p className="mt-2 text-right text-[11px] text-muted">
+                <span className="text-mint-ink">▲ 개선</span> · <span className="text-coral-ink">▼ 악화</span> ({compareTo.id} 대비)
+              </p>
 
               <div className="mt-4">
                 {sel.id === servingVersion ? (
@@ -241,21 +245,27 @@ export default function AdminModels() {
       </Modal>
 
       <Modal open={rollback} onClose={() => setRollback(false)} title="어디로 되돌릴까요?">
-        <p className="text-sm leading-relaxed text-muted">지표가 나빠졌을 때 이전 버전이나 Sonnet 단독 판정으로 바로 돌아가요.</p>
+        <p className="text-sm leading-relaxed text-muted">지표가 나빠졌을 때 이전에 서빙했던 버전이나 Sonnet 단독 판정으로 바로 돌아가요. 서빙한 적 없는 버전은 버전 비교를 거쳐 배포해 주세요.</p>
         <div className="mt-5 space-y-2">
-          {versions
-            .filter((v) => v.id !== servingVersion)
-            .map((v) => (
-              <button key={v.id} onClick={() => switchTo(v.id)} className="flex w-full items-center justify-between rounded-[18px] bg-white p-4 text-left hover:bg-white/70">
+          {rollbackTargets.map((v) => {
+            const warn = v.wrongRate > targets.wrongRate;
+            return (
+              <button key={v.id} onClick={() => switchTo(v.id)} className="flex w-full items-center justify-between gap-3 rounded-[18px] bg-white p-4 text-left hover:bg-white/70">
                 <span>
                   <span className="font-bold">판정 모델 {v.id}</span>
                   <span className="block text-xs text-muted">
-                    AUC {v.auc.toFixed(2)} · 오답 즉답률 {v.wrongRate}%
+                    AUC {v.auc.toFixed(2)} · 오답 즉답률 <span className={warn ? "font-semibold text-coral-ink" : ""}>{v.wrongRate}%</span>
                   </span>
+                  {warn && (
+                    <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-coral-ink">
+                      <Icon name="alert" size={12} /> 오답 즉답률이 목표({targets.wrongRate}% 이하)를 넘어요
+                    </span>
+                  )}
                 </span>
-                <Icon name="right" size={17} />
+                <Icon name="right" size={17} className="shrink-0" />
               </button>
-            ))}
+            );
+          })}
           {servingVersion !== "sonnet" && (
             <button onClick={() => switchTo("sonnet")} className="flex w-full items-center justify-between rounded-[18px] bg-coral/15 p-4 text-left">
               <span>
@@ -291,7 +301,11 @@ function Row({ label, a, b, c, fmt, higher = false }: { label: string; a: number
       <td className="py-2.5 text-ink/70">{label}</td>
       <td className={`py-2.5 text-right font-bold ${better === null ? "" : better ? "text-mint-ink" : "text-coral-ink"}`}>
         {fmt(a)}
-        {better !== null && <span className="ml-0.5 text-[10px]">{a > b ? "▲" : "▼"}</span>}
+        {better !== null && (
+          <span className="ml-0.5 text-[10px]" aria-label={better ? "개선" : "악화"}>
+            {better ? "▲" : "▼"}
+          </span>
+        )}
       </td>
       <td className="py-2.5 text-right">{fmt(b)}</td>
       <td className="py-2.5 text-right text-muted">{fmt(c)}</td>
