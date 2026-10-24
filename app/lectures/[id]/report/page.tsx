@@ -21,6 +21,7 @@ export default function Report() {
   const { deletedQuestions } = useDemo();
   const toast = useToast();
   const log = pastQuestionLog.filter((q) => !deletedQuestions.includes(q.text));
+  const topLiked = [...log].filter((q) => q.likes > 0).sort((a, b) => b.likes - a.likes).slice(0, 3);
 
   useEffect(() => {
     if (noteReady) return;
@@ -126,6 +127,25 @@ export default function Report() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-3 rounded-[24px] bg-white p-5">
+              <p className="font-bold">공감 상위 질문</p>
+              <p className="text-xs text-muted">청중이 가장 많이 공감한 질문이에요</p>
+              <ol className="mt-3 space-y-2">
+                {topLiked.map((q, i) => (
+                  <li key={q.text} className="flex items-center gap-3 rounded-2xl bg-paper p-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-bold text-white">{i + 1}</span>
+                    <span className="min-w-0 flex-1 text-sm leading-snug">
+                      {q.text}
+                      <span className="mt-0.5 block text-xs text-muted">교안 {q.page}p</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1 text-sm font-semibold">
+                      <Icon name="heart" size={14} /> {q.likes}
+                    </span>
+                  </li>
+                ))}
+              </ol>
             </div>
           </div>
         )}

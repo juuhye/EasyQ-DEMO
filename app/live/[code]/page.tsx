@@ -1,12 +1,12 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
-import { Button, Empty, Modal, RoundButton, Screen, Tabs, useToast } from "@/components/ui";
+import { Button, Empty, RoundButton, Screen, Tabs, useToast } from "@/components/ui";
 import { SourceChips } from "@/components/SourceChips";
-import { cannedAnswers, resolveCode, statusOf, liveAiQuestions, livePublicQuestions, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
+import { SESSION_CAPACITY, cannedAnswers, findLectureByCode, statusOf, liveAiQuestions, livePublicQuestions, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 type Mine = {
@@ -18,11 +18,10 @@ type Mine = {
   sources?: Source[];
   feedback?: "up" | "down" | null;
   retracted?: boolean;
+  streaming?: boolean;
 };
 
-type Noti = { id: string; text: string; tone: "mint" | "coral"; read: boolean };
 
-const COOLDOWN = 10;
 
 function now() {
   const d = new Date();
@@ -31,11 +30,12 @@ function now() {
 
 export default function AudienceLive() {
   const { code } = useParams<{ code: string }>();
-  const { name, guestName, endedLectures, codes } = useDemo();
-  const { lecture, expired } = resolveCode(code, codes);
+  const { name, guestName, endedLectures } = useDemo();
+  const lecture = findLectureByCode(code);
   const status = lecture ? statusOf(lecture, endedLectures) : null;
   // QR · 링크로 바로 들어와도 진행 중인 강의만 열린다. 참여 중에 종료되면 화면은 유지하고 질문만 막는다
-  const [joinedLive] = useState(status === "live");
+  const full = !!lecture && lecture.audience >= SESSION_CAPACITY;
+  const [joinedLive] = useState(status === "live" && !full);
   const toast = useToast();
 
   const [tab, setTab] = useState<"ask" | "board" | "mine">("ask");
@@ -44,21 +44,14 @@ export default function AudienceLive() {
     ...liveAiQuestions.filter((q) => q.mine).map((q) => ({ id: q.id, text: q.text, at: q.at, state: "ai" as const, answer: q.answer, sources: q.sources, feedback: null })),
     ...livePublicQuestions.filter((q) => q.mine).map((q) => ({ id: q.id, text: q.text, at: q.at, state: "forwarded" as const })),
   ]);
-  const [notis, setNotis] = useState<Noti[]>([]);
-  const [notiOpen, setNotiOpen] = useState(false);
   const [text, setText] = useState("");
-  const [cooldown, setCooldown] = useState(0);
   const [sort, setSort] = useState<"likes" | "page">("likes");
   // 강연자나 관리자가 강의를 종료하면 청중 화면에도 반영
   const ended = status === "ended";
 
-  // 실시간 이벤트 시뮬레이션: 다른 청중의 공감, 강연자 답변 완료, AI 답변 철회
-  const showToast = toast.show;
+  // 실시간 이벤트 시뮬레이션: 다른 청중의 공감, 강연자 답변 완료, AI 답변 철회.
+  // 따로 알림을 보내지 않고 목록 · 내 질문 화면의 상태로만 반영한다 (F5-6 삭제)
   useEffect(() => {
-    const push = (text: string, tone: Noti["tone"]) => {
-      setNotis((n) => [{ id: crypto.randomUUID(), text, tone, read: false }, ...n]);
-      showToast(text, tone);
-    };
     const likeTimer = setInterval(() => {
       setPublicQs((qs) => {
         const waiting = qs.filter((q) => q.status === "waiting");
@@ -69,24 +62,16 @@ export default function AudienceLive() {
     }, 3500);
     const doneTimer = setTimeout(() => {
       setPublicQs((qs) => qs.map((q) => (q.id === "p2" ? { ...q, status: "done" } : q)));
-      push("강연자가 ‘과제 3번 제출 기한…’ 질문에 답했어요", "mint");
     }, 12000);
     const retractTimer = setTimeout(() => {
       setMine((m) => m.map((q) => (q.id === "a2" ? { ...q, retracted: true } : q)));
-      push("강연자가 AI 답변 하나를 철회했어요", "coral");
     }, 24000);
     return () => {
       clearInterval(likeTimer);
       clearTimeout(doneTimer);
       clearTimeout(retractTimer);
     };
-  }, [showToast]);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [cooldown]);
+  }, []);
 
   // 입력 중 비슷한 공개 질문 먼저 보여주기
   const similar = useMemo(() => {
@@ -103,18 +88,18 @@ export default function AudienceLive() {
       .map((x) => x.q);
   }, [text, publicQs]);
 
-  if (!lecture || expired || !joinedLive) {
+  if (!lecture || !joinedLive) {
     const [emoji, title, desc] = !lecture
       ? ["🔍", "입장 코드를 찾을 수 없어요", "코드를 다시 확인하거나 강연자에게 QR을 요청해 주세요."]
-      : expired
-        ? ["🔄", "더 이상 쓸 수 없는 QR이에요", "강연자가 QR을 새로 발급했어요. 강의실 화면의 새 QR이나 코드로 들어와 주세요."]
+      : full && status === "live"
+        ? ["🪑", "정원이 다 찬 강의예요", `이 강의는 ${SESSION_CAPACITY}명까지 들어올 수 있어요. 자리가 나면 다시 들어와 주세요.`]
         : status === "ended"
           ? ["🏁", "이미 끝난 강의예요", "질문 접수가 마감됐어요. 참여했던 강의라면 보관함에서 기록을 볼 수 있어요."]
           : ["⏳", "아직 시작 전인 강의예요", "강연자가 강의를 시작하면 이 QR로 들어올 수 있어요."];
     return (
       <Screen>
         <Empty emoji={emoji} title={title} desc={desc}>
-          <Button href={status === "ended" ? "/archive" : "/join"}>{status === "ended" && !expired ? "보관함 보기" : "입장 코드 입력하기"}</Button>
+          <Button href={status === "ended" ? "/archive" : "/join"}>{status === "ended" ? "보관함 보기" : "입장 코드 입력하기"}</Button>
         </Empty>
       </Screen>
     );
@@ -123,12 +108,12 @@ export default function AudienceLive() {
   function like(id: string) {
     const q = publicQs.find((x) => x.id === id);
     if (!q) return;
-    if (q.liked) return toast.show("이미 공감한 질문이에요");
-    setPublicQs((qs) => qs.map((x) => (x.id === id ? { ...x, liked: true, likes: x.likes + 1 } : x)));
+    // 1인 1회. 다시 누르면 공감을 취소한다
+    setPublicQs((qs) => qs.map((x) => (x.id === id ? { ...x, liked: !x.liked, likes: x.likes + (x.liked ? -1 : 1) } : x)));
   }
 
   function mergeInto(id: string) {
-    like(id);
+    if (!publicQs.find((x) => x.id === id)?.liked) like(id);
     setText("");
     toast.show("같은 질문에 공감으로 합쳤어요 💛", "coral");
   }
@@ -137,18 +122,16 @@ export default function AudienceLive() {
     const t = text.trim();
     if (ended) return toast.show("강의가 끝나 더 이상 질문할 수 없어요");
     if (!t) return;
-    if (cooldown > 0) return toast.show(`${cooldown}초 뒤에 다시 질문할 수 있어요`);
 
     const id = crypto.randomUUID();
     setMine((m) => [{ id, text: t, at: now(), state: "judging" }, ...m]);
     setText("");
-    setCooldown(COOLDOWN);
     setTab("mine");
 
     setTimeout(() => {
       const hit = cannedAnswers.find((c) => c.keys.some((k) => t.toLowerCase().includes(k)));
       if (hit) {
-        setMine((m) => m.map((q) => (q.id === id ? { ...q, state: "ai", answer: hit.answer, sources: hit.sources, feedback: null } : q)));
+        setMine((m) => m.map((q) => (q.id === id ? { ...q, state: "ai", answer: hit.answer, sources: hit.sources, feedback: null, streaming: true } : q)));
         toast.show("AI가 바로 답했어요 ✨", "mint");
       } else {
         setMine((m) => m.map((q) => (q.id === id ? { ...q, state: "forwarded" } : q)));
@@ -158,7 +141,6 @@ export default function AudienceLive() {
     }, 2200);
   }
 
-  const unread = notis.filter((n) => !n.read).length;
   const sorted = [...publicQs].sort((a, b) => {
     if (a.status !== b.status) return a.status === "waiting" ? -1 : 1;
     return sort === "likes" ? b.likes - a.likes : (a.page ?? 999) - (b.page ?? 999);
@@ -175,17 +157,7 @@ export default function AudienceLive() {
             <span className={`h-1.5 w-1.5 rounded-full ${ended ? "bg-ink/30" : "animate-pulse bg-coral"}`} />
             {ended ? "종료됨" : "LIVE"} · {lecture.audience}명
           </span>
-          <button
-            onClick={() => {
-              setNotiOpen(true);
-              setNotis((n) => n.map((x) => ({ ...x, read: true })));
-            }}
-            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-sand"
-            aria-label="알림"
-          >
-            <Icon name="bell" size={19} />
-            {unread > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-ink px-1 text-xs font-bold text-white">{unread}</span>}
-          </button>
+          <span className="w-10" aria-hidden />
         </div>
         <div className="mt-6 flex items-end justify-between gap-3">
           <h1 className="text-[32px] font-extrabold leading-[1.08] tracking-[-0.05em]">{lecture.title}</h1>
@@ -228,7 +200,7 @@ export default function AudienceLive() {
               />
               <div className="flex justify-end pt-2">
                 <Button size="sm" icon="send" onClick={submit} disabled={!text.trim() || ended}>
-                  {cooldown > 0 ? `${cooldown}초 후 가능` : "보내기"}
+                  보내기
                 </Button>
               </div>
             </div>
@@ -312,7 +284,7 @@ export default function AudienceLive() {
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[10px] text-white">✦</span>
                         AI 답변 · 나에게만 보여요
                       </p>
-                      <p className="text-[15px] leading-relaxed">{q.answer}</p>
+                      <p className="text-[15px] leading-relaxed">{q.streaming ? <StreamText text={q.answer ?? ""} onDone={() => setMine((m) => m.map((x) => (x.id === q.id ? { ...x, streaming: false } : x)))} /> : q.answer}</p>
                       <SourceChips sources={q.sources ?? []} />
                       <div className="mt-3 flex items-center gap-1.5 border-t border-ink/10 pt-3">
                         <span className="flex-1 text-xs text-ink/55">{q.feedback ? "피드백 고마워요!" : "도움이 됐나요?"}</span>
@@ -356,20 +328,6 @@ export default function AudienceLive() {
 
       </div>
 
-      <Modal open={notiOpen} onClose={() => setNotiOpen(false)} title="알림">
-        {notis.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">아직 알림이 없어요. 새 소식이 생기면 알려드릴게요.</p>
-        ) : (
-          <ul className="space-y-2">
-            {notis.map((n) => (
-              <li key={n.id} className="flex items-center gap-3 rounded-2xl bg-white p-3.5 text-sm">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${n.tone === "mint" ? "bg-mint" : "bg-coral"}`} />
-                {n.text}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Modal>
     </Screen>
   );
 }
@@ -416,7 +374,8 @@ function BoardBubble({ q, i, total, onLike }: { q: PublicQuestion; i: number; to
         <button
           onClick={onLike}
           disabled={done}
-          aria-label="공감"
+          aria-label={q.liked ? "공감 취소" : "공감"}
+          aria-pressed={!!q.liked}
           className={`flex shrink-0 flex-col items-center justify-center rounded-full transition-all ${
             q.liked ? "h-12 w-12 bg-ink text-white" : "h-12 w-12 bg-white/55 text-ink hover:bg-white/80"
           }`}
@@ -481,5 +440,25 @@ function BoardBubble({ q, i, total, onLike }: { q: PublicQuestion; i: number; to
         )
       )}
     </Bubble>
+  );
+}
+
+// AI 답변을 글자가 이어서 나오도록 보여준다 (F4-4 스트리밍)
+function StreamText({ text, onDone }: { text: string; onDone: () => void }) {
+  const [n, setN] = useState(0);
+  const doneRef = useRef(onDone);
+  useEffect(() => {
+    doneRef.current = onDone;
+  });
+  useEffect(() => {
+    if (n >= text.length) return doneRef.current();
+    const t = setTimeout(() => setN((v) => Math.min(text.length, v + 2)), 30);
+    return () => clearTimeout(t);
+  }, [n, text]);
+  return (
+    <>
+      {text.slice(0, n)}
+      {n < text.length && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-ink/60 align-middle" />}
+    </>
   );
 }

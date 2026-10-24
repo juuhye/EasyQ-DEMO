@@ -106,24 +106,16 @@ export function findLecture(id: string) {
   return lectures.find((l) => l.id === id);
 }
 
-// 입장 코드로 강의를 찾는다. 재발급된 강의의 이전 코드는 expired로 돌려준다
-export function resolveCode(code: string, codes: Record<string, string>) {
-  const c = code.trim().toUpperCase();
-  const lecture = lectures.find((l) => (codes[l.id] ?? l.code) === c);
-  if (lecture) return { lecture, expired: false };
-  const old = lectures.find((l) => codes[l.id] && l.code === c);
-  return { lecture: old, expired: !!old };
+// 세션 정원 (N-08 동시 접속 목표)
+export const SESSION_CAPACITY = 300;
+
+export function findLectureByCode(code: string) {
+  return lectures.find((l) => l.code === code.trim().toUpperCase());
 }
 
 // 강연자 · 관리자가 종료한 강의까지 반영한 상태
 export function statusOf(l: Lecture, endedLectures: string[]): LectureStatus {
   return endedLectures.includes(l.id) ? "ended" : l.status;
-}
-
-// 입장 코드 재발급용. 헷갈리는 글자(0 · O · 1 · I)는 뺀다
-export function newCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
 // ── 질문 ──────────────────────────────────────────
@@ -303,7 +295,7 @@ export const archive: ArchiveItem[] = [
     myQuestions: [
       { id: "m1", text: "노이즈 스케줄은 선형 말고 다른 것도 있나요?", kind: "ai", answer: "선형 외에 cosine 스케줄이 자주 쓰여요. 초반에 노이즈를 천천히 더해 이미지 정보가 더 오래 남게 해 줘요.", sources: [{ kind: "slide", label: "교안 9p", quote: "β schedule: linear vs cosine" }] },
       { id: "m2", text: "Stable Diffusion은 왜 latent 공간에서 하나요?", kind: "forwarded", status: "done" },
-      { id: "m3", text: "guidance scale을 너무 올리면 어떻게 되나요?", kind: "ai", answer: "조건을 더 강하게 따르지만, 지나치면 색이 과포화되고 다양성이 줄어요.", sources: [{ kind: "speech", label: "발화 15:42", quote: "7에서 8 정도가 무난하고 너무 올리면 그림이 타요." }] },
+      { id: "m3", text: "guidance scale을 너무 올리면 어떻게 되나요?", kind: "ai", answer: "조건을 더 강하게 따르지만, 지나치면 색이 과포화되고 다양성이 줄어요.", sources: [{ kind: "speech", label: "발화 15:42", quote: "7에서 8 정도가 무난하고 너무 올리면 그림이 타요." }], retracted: true },
     ],
     questions: [
       { id: "k1", text: "GAN이랑 비교했을 때 단점은 뭔가요?", likes: 19, status: "done", liked: true, memo: "샘플링이 느린 게 가장 큰 단점. 기말 비교 문제로 나올 듯" },
@@ -346,7 +338,7 @@ export const archive: ArchiveItem[] = [
     date: "2026.09.30",
     tone: "leaf",
     emoji: "🚀",
-    summary: "failed",
+    summary: "none",
     myQuestions: [{ id: "m6", text: "인터뷰 대상자는 몇 명 정도가 적당한가요?", kind: "forwarded", status: "done" }],
     questions: [
       { id: "m6", text: "인터뷰 대상자는 몇 명 정도가 적당한가요?", likes: 6, status: "done", liked: false },
@@ -392,10 +384,12 @@ const liveArchive: ArchiveItem = {
   date: lectures[0].date.slice(0, 10),
   tone: lectures[0].tone,
   emoji: lectures[0].emoji,
-  summary: "ready",
+  // 강의가 막 끝나 요약 노트를 만드는 중. 상세 화면에서 잠시 뒤 완성된다
+  summary: "generating",
   note: transformerNote,
   myQuestions: [
-    ...liveAiQuestions.filter((q) => q.mine).map((q) => ({ id: q.id, text: q.text, kind: "ai" as const, answer: q.answer, sources: q.sources })),
+    // a2는 강의 중 강연자가 철회한 답변
+    ...liveAiQuestions.filter((q) => q.mine).map((q) => ({ id: q.id, text: q.text, kind: "ai" as const, answer: q.answer, sources: q.sources, retracted: q.id === "a2" })),
     ...livePublicQuestions.filter((q) => q.mine).map((q) => ({ id: q.id, text: q.text, kind: "forwarded" as const, status: q.status })),
   ],
   questions: livePublicQuestions.map((q) => ({ id: q.id, text: q.text, likes: q.likes, status: q.status, liked: !!q.liked })),

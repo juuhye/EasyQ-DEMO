@@ -9,12 +9,12 @@ import { MOCK_PASSWORD } from "@/lib/auth";
 import { archive, inquiries, lectures, me, notices } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
-type Sheet = null | "name" | "pw" | "consent" | "notice" | "inquiry" | "leave";
+type Sheet = null | "name" | "pw" | "notice" | "inquiry" | "leave";
 
 export default function Me() {
   const router = useRouter();
   const toast = useToast();
-  const { name, consent } = useDemo();
+  const { name } = useDemo();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [draftName, setDraftName] = useState(name);
   const [pw, setPw] = useState({ cur: "", next: "" });
@@ -26,7 +26,6 @@ export default function Me() {
   const menu: { icon: IconName; label: string; sheet: Sheet; badge?: string }[] = [
     { icon: "pen", label: "표시명 변경", sheet: "name" },
     { icon: "lock", label: "비밀번호 변경", sheet: "pw" },
-    { icon: "shield", label: "데이터 활용 동의", sheet: "consent" },
     { icon: "megaphone", label: "공지사항", sheet: "notice", badge: "N" },
     { icon: "chat", label: "1:1 문의", sheet: "inquiry" },
   ];
@@ -92,43 +91,6 @@ export default function Me() {
         >
           저장
         </Button>
-      </Modal>
-
-      {/* 데이터 활용 동의 (API-48) · 계정 단위로 저장돼 다음 입장부터 적용 */}
-      <Modal open={sheet === "consent"} onClose={() => setSheet(null)} title="데이터 활용 동의">
-        <div className="space-y-2">
-          <div className="flex gap-3 rounded-[20px] bg-white p-4">
-            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-white">
-              <Icon name="check" size={14} stroke={3.2} />
-            </span>
-            <span>
-              <span className="block font-bold">
-                질문 · 답변 기록 보관 <span className="font-semibold text-coral-ink">(필수)</span>
-              </span>
-              <span className="mt-1 block text-sm leading-relaxed text-muted">서비스 이용에 꼭 필요해서 끌 수 없어요. 회원 탈퇴하면 철회돼요.</span>
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              setDemo({ consent: { ...consent, learn: !consent.learn } });
-              toast.show(consent.learn ? "익명 활용 동의를 철회했어요" : "익명 활용에 동의했어요", "mint");
-            }}
-            role="switch"
-            aria-checked={consent.learn}
-            className="flex w-full gap-3 rounded-[20px] bg-white p-4 text-left"
-          >
-            <span className="flex-1">
-              <span className="block font-bold">
-                AI 개선을 위한 익명 활용 <span className="font-semibold text-muted">(선택)</span>
-              </span>
-              <span className="mt-1 block text-sm leading-relaxed text-muted">이름 · 이메일을 뺀 질문 문장만 AI 판정 모델 개선에 쓰여요.</span>
-            </span>
-            <span className={`mt-0.5 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${consent.learn ? "bg-ink" : "bg-ink/15"}`}>
-              <span className={`h-5 w-5 rounded-full bg-white transition-transform ${consent.learn ? "translate-x-5" : ""}`} />
-            </span>
-          </button>
-        </div>
-        <p className="mt-3 text-xs leading-relaxed text-muted">바꾼 내용은 다음 질문부터 적용돼요. 이미 학습에 쓰인 익명 데이터는 되돌리지 않아요.</p>
       </Modal>
 
       {/* 비밀번호 */}

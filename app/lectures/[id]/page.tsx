@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { FakeQR } from "@/components/FakeQR";
 import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
-import { QrModal, QrReissue } from "@/components/QrModal";
+import { QrModal } from "@/components/QrModal";
 import { Button, Empty, Modal, Progress, Screen, StatusPill, TopBar, inputCls, useToast } from "@/components/ui";
 import { findLecture, statusOf, type FileState, type Lecture } from "@/lib/mock";
 import { useDemo } from "@/lib/store";
@@ -17,7 +17,7 @@ export default function LectureDetail() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const { created, codes, endedLectures } = useDemo();
+  const { created, endedLectures } = useDemo();
 
   const base: Lecture | undefined =
     id === "new-lecture" && created
@@ -64,13 +64,16 @@ export default function LectureDetail() {
   if (status !== "ready") return <Screen>{null}</Screen>;
 
   const lecture = base;
-  const code = codes[lecture.id] ?? lecture.code;
   const stageIdx = Math.min(stages.length - 1, Math.floor(progress / 25));
 
-  function pick(f: File) {
+  async function pick(f: File) {
     const ext = f.name.split(".").pop()?.toLowerCase();
     if (!ext || !["pdf", "pptx"].includes(ext)) return setFileError("PDF 또는 PPTX 파일만 올릴 수 있어요.");
     if (f.size > MAX_MB * 1024 * 1024) return setFileError(`${MAX_MB}MB 이하 파일만 올릴 수 있어요.`);
+    // 확장자만 바꾼 파일이나 깨진 파일: PDF는 %PDF, PPTX는 ZIP(PK) 헤더로 시작해야 한다
+    const head = new Uint8Array(await f.slice(0, 4).arrayBuffer());
+    const ok = ext === "pdf" ? String.fromCharCode(...head) === "%PDF" : head[0] === 0x50 && head[1] === 0x4b;
+    if (!ok) return setFileError("파일이 손상됐거나 열 수 없어요. 원본 파일을 다시 저장해서 올려 주세요.");
     setFileError("");
     start({ name: f.name, pages: 30 + Math.floor(Math.random() * 15), chunks: 0, state: "processing" });
   }
@@ -224,18 +227,17 @@ export default function LectureDetail() {
         {/* 3. QR */}
         <Step n={3} title="청중 입장 QR" done desc="강의를 시작하면 청중이 이 QR로 들어와요.">
           <div className="flex items-center gap-4 rounded-[24px] bg-white p-4">
-            <FakeQR code={code} size={112} />
+            <FakeQR code={lecture.code} size={112} />
             <div className="flex-1">
               <p className="text-xs text-muted">입장 코드</p>
-              <p className="text-3xl font-extrabold tracking-[0.2em]">{code}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <p className="text-3xl font-extrabold tracking-[0.2em]">{lecture.code}</p>
+              <div className="mt-2 flex gap-2">
                 <Button size="sm" variant="soft" icon="expand" onClick={() => setQrOpen(true)}>
                   크게 보기
                 </Button>
                 <Button size="sm" variant="ghost" icon="copy" onClick={() => toast.show("입장 링크를 복사했어요")}>
                   링크
                 </Button>
-                <QrReissue lectureId={lecture.id} onDone={(c) => toast.show(`새 입장 코드 ${c}를 만들었어요. 이전 QR은 꺼졌어요`, "mint")} />
               </div>
             </div>
           </div>
@@ -250,7 +252,7 @@ export default function LectureDetail() {
         </div>
       </div>
 
-      <QrModal open={qrOpen} onClose={() => setQrOpen(false)} code={code} title={lecture.title} />
+      <QrModal open={qrOpen} onClose={() => setQrOpen(false)} code={lecture.code} title={lecture.title} />
 
       <Modal open={warn} onClose={() => setWarn(false)}>
         <div className="flex flex-col items-center text-center">

@@ -5,10 +5,10 @@ import { AdminTitle, Dot, Panel } from "@/components/admin";
 import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Modal, Pill, Progress, useToast } from "@/components/ui";
-import { baseline, modelVersions, retrainedVersion, rocPoints, targets, type ModelVersion } from "@/lib/admin";
+import { baseline, labelCandidates, modelVersions, retrainedVersion, rocPoints, targets, type ModelVersion } from "@/lib/admin";
 import { setDemo, useDemo } from "@/lib/store";
 
-const trainSteps = ["ds-v4 불러오기", "판정 모델 파인튜닝", "같은 시험셋으로 평가", "경량화 · 버전 등록"];
+const trainSteps = ["검수 데이터 병합", "판정 모델 파인튜닝", "같은 시험셋으로 평가", "경량화 · 버전 등록"];
 
 // 새 버전은 서빙 중인 버전보다 성능이 같거나 좋을 때만 배포할 수 있다 (F12-4)
 function gate(v: ModelVersion, serving: ModelVersion) {
@@ -20,7 +20,7 @@ function gate(v: ModelVersion, serving: ModelVersion) {
 }
 
 export default function AdminModels() {
-  const { servingVersion, retrained, merged, servedVersions } = useDemo();
+  const { servingVersion, retrained, labelDecisions, servedVersions } = useDemo();
   const versions = retrained ? [retrainedVersion, ...modelVersions] : modelVersions;
   const serving = versions.find((v) => v.id === servingVersion) ?? null;
   const [selected, setSelected] = useState(versions[0].id);
@@ -31,6 +31,7 @@ export default function AdminModels() {
   const toast = useToast();
 
   // 롤백은 이전에 서빙했던 버전으로만 (설계 2.4.3). 한 번도 서빙하지 않은 버전은 배포 관문을 거쳐야 한다
+  const accepted = labelCandidates.filter((c) => labelDecisions[c.id] && labelDecisions[c.id] !== "exclude").length;
   const rollbackTargets = versions.filter((v) => v.id !== servingVersion && servedVersions.includes(v.id));
   const compareTo = serving ?? baseline;
   const blocked = sel.id === servingVersion ? [] : gate(sel, compareTo);
@@ -120,13 +121,13 @@ export default function AdminModels() {
             ) : (
               <>
                 <div className="rounded-2xl bg-paper p-3 text-sm">
-                  <p className="font-semibold">{merged ? "ds-v4로 재학습" : "병합된 새 데이터셋이 없어요"}</p>
+                  <p className="font-semibold">ds-v3 + 검수 라벨 {accepted}건 → ds-v4</p>
                   <p className="mt-0.5 text-xs text-muted">학습서버 API로 요청해요. 실패하면 기존 버전을 그대로 써요.</p>
                 </div>
-                <Button className="mt-3 w-full" icon="play" disabled={!merged} onClick={retrain}>
+                <Button className="mt-3 w-full" icon="play" disabled={accepted === 0} onClick={retrain}>
                   재학습 실행
                 </Button>
-                {!merged && <p className="mt-2 text-center text-xs text-muted">데이터 · 라벨 화면에서 검수 라벨을 병합해 주세요</p>}
+                {accepted === 0 && <p className="mt-2 text-center text-xs text-muted">데이터 · 라벨 화면에서 라벨을 1건 이상 검수해 주세요</p>}
               </>
             )}
           </Panel>

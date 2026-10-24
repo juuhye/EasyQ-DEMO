@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, PageTitle, Screen, StatusPill, TopBar, inputCls } from "@/components/ui";
-import { lectures, resolveCode, statusOf, type Lecture } from "@/lib/mock";
+import { SESSION_CAPACITY, findLectureByCode, statusOf, type Lecture } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 // 회원은 가입 때 계정 단위로 동의했으니 바로 입장하고, 게스트만 입장할 때마다 동의를 받는다
@@ -13,7 +13,7 @@ type Step = "code" | "who" | "consent";
 
 export default function Join() {
   const router = useRouter();
-  const { name, codes, endedLectures } = useDemo();
+  const { name, endedLectures } = useDemo();
   const [step, setStep] = useState<Step>("code");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -23,12 +23,12 @@ export default function Join() {
   const [scanning, setScanning] = useState(false);
 
   function check(c: string) {
-    const { lecture: l, expired } = resolveCode(c, codes);
+    const l = findLectureByCode(c);
     if (!l) return setError("입장 코드를 찾을 수 없어요. 다시 확인해 주세요.");
-    if (expired) return setError("재발급돼서 더 이상 쓸 수 없는 코드예요. 강연자 화면의 새 코드를 입력해 주세요.");
     const status = statusOf(l, endedLectures);
     if (status === "ended") return setError("이미 끝난 강의예요. 보관함에서 기록을 볼 수 있어요.");
     if (status === "ready") return setError("아직 시작 전인 강의예요. 강연자가 시작하면 들어올 수 있어요.");
+    if (l.audience >= SESSION_CAPACITY) return setError(`정원(${SESSION_CAPACITY}명)이 다 찬 강의예요. 자리가 나면 다시 들어와 주세요.`);
     setLecture(l);
     setStep("who");
   }
@@ -37,16 +37,15 @@ export default function Join() {
     setScanning(true);
     setTimeout(() => {
       setScanning(false);
-      const live = codes[lectures[0].id] ?? lectures[0].code;
-      setCode(live);
-      check(live);
+      setCode("QX7K2");
+      check("QX7K2");
     }, 1400);
   }
 
   function enter(asGuest: boolean) {
     if (!lecture) return;
     setDemo({ guestName: asGuest ? nick.trim() || "익명의 청중" : null });
-    router.push(`/s/${codes[lecture.id] ?? lecture.code}`);
+    router.push(`/live/${lecture.code}`);
   }
 
   return (

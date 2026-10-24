@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { SummaryNote } from "@/components/SummaryNote";
@@ -18,6 +18,14 @@ export default function ArchiveDetail() {
   const item = archiveWith(endedLectures).find((a) => a.id === id);
   const [tab, setTab] = useState<"note" | "mine" | "all">("note");
   const [questions, setQuestions] = useState(item?.myQuestions ?? []);
+  const [summary, setSummary] = useState(item?.summary ?? "none");
+
+  // 생성 중인 요약 노트는 완성되면 바로 보여준다
+  useEffect(() => {
+    if (summary !== "generating" || !item?.note) return;
+    const t = setTimeout(() => setSummary("ready"), 3500);
+    return () => clearTimeout(t);
+  }, [summary, item?.note]);
   const [confirm, setConfirm] = useState<null | { kind: "one"; qid: string } | { kind: "all" }>(null);
 
   if (!item)
@@ -71,8 +79,12 @@ export default function ArchiveDetail() {
 
         {tab === "note" && (
           <div className="animate-rise pt-4">
-            {item.summary === "ready" && item.note ? (
+            {summary === "ready" && item.note ? (
               <SummaryNote note={item.note} tone={item.tone} />
+            ) : summary === "generating" ? (
+              <Empty emoji="✍️" title="요약 노트를 만드는 중이에요" desc="강연 발화와 교안을 읽고 있어요. 완성되면 여기에 바로 보여드릴게요." />
+            ) : summary === "failed" ? (
+              <Empty emoji="⚠️" title="요약 노트를 만들지 못했어요" desc="잠시 뒤 자동으로 다시 만들어요. 완성되면 여기에 보여드릴게요." />
             ) : (
               <Empty emoji="🫙" title="요약 노트가 만들어지지 않았어요" desc="강연 발화가 너무 짧으면 요약 노트를 만들지 않아요." />
             )}
@@ -90,7 +102,12 @@ export default function ArchiveDetail() {
                     <Icon name="trash" size={16} />
                   </button>
                 </div>
-                {q.kind === "ai" ? (
+                {q.kind === "ai" && q.retracted ? (
+                  <div className="mt-3 rounded-[20px] bg-coral/15 p-4">
+                    <p className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold">↩︎ AI 답변 철회됨</p>
+                    <p className="mt-2 text-sm leading-relaxed text-ink/60">강연자가 이 AI 답변을 철회했어요. 질문은 강연자에게 전달됐어요.</p>
+                  </div>
+                ) : q.kind === "ai" ? (
                   <div className="mt-3 rounded-[20px] bg-mint/18 p-4">
                     <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold">
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[10px] text-white">✦</span> AI 답변
@@ -115,9 +132,6 @@ export default function ArchiveDetail() {
                 <div key={q.id} className="flex items-center gap-3 rounded-[24px] bg-white p-4">
                   <div className="min-w-0 flex-1">
                     <p className="text-[15px] leading-snug">{q.text}</p>
-                    <p className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${q.status === "done" ? "bg-mint/18 text-mint-ink" : "bg-honey/35 text-ink/70"}`}>
-                      {q.status === "done" ? "답변 완료" : "미완료"}
-                    </p>
                     {(memos[q.id] ?? q.memo)?.trim() && (
                       <p className="mt-2 flex gap-1.5 rounded-2xl bg-paper px-3 py-2 text-sm text-ink/70">
                         <Icon name="pen" size={14} className="mt-0.5 shrink-0" />

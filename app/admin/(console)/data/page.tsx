@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AdminTitle, Dot, Panel } from "@/components/admin";
 import { Icon } from "@/components/Icon";
-import { Button, Pill, Progress, Tabs, useToast } from "@/components/ui";
+import { Button, Pill, Progress, Tabs } from "@/components/ui";
 import { datasets, forwardKinds, judgeThreshold, labelCandidates, labelText, type LabelCandidate, type LabelKind } from "@/lib/admin";
 import { setDemo, useDemo } from "@/lib/store";
 
@@ -126,80 +126,37 @@ const reviewOrder = [...labelCandidates].sort((a, b) => {
 });
 
 function ReviewView() {
-  const { labelDecisions, labelEvidence, merged } = useDemo();
-  const [choosing, setChoosing] = useState<Record<string, { d: Decision; evidence: string | null }>>({});
-  const [merging, setMerging] = useState(false);
-  const toast = useToast();
+  const { labelDecisions } = useDemo();
   const decided = Object.values(labelDecisions);
   const accepted = decided.filter((d) => d !== "exclude").length;
 
-  function decide(id: string, d: Decision | null, evidence?: string) {
+  function decide(id: string, d: Decision | null) {
     setDemo((s) => {
       const next = { ...s.labelDecisions };
-      const ev = { ...s.labelEvidence };
       if (d) next[id] = d;
       else delete next[id];
-      if (evidence) ev[id] = evidence;
-      else delete ev[id];
-      return { labelDecisions: next, labelEvidence: ev };
+      return { labelDecisions: next };
     });
-    closeChoice(id);
-  }
-
-  function closeChoice(id: string) {
-    setChoosing((m) => {
-      const next = { ...m };
-      delete next[id];
-      return next;
-    });
-  }
-
-  // 답변 가능으로 확정할 때는 정답 근거를 먼저 고른다
-  function pick(c: LabelCandidate, d: Decision) {
-    const final = d === "approve" ? c.suggested : d === "flip" ? flip(c.suggested) : null;
-    if (final === "answerable") return setChoosing((m) => ({ ...m, [c.id]: { d, evidence: null } }));
-    decide(c.id, d);
-  }
-
-  // API-30: 승인 · 수정한 라벨을 학습서버로 보내 새 데이터셋을 만든다
-  function merge() {
-    setMerging(true);
-    setTimeout(() => {
-      setMerging(false);
-      setDemo({ merged: true });
-      toast.show(`검수 라벨 ${accepted}건을 병합해 ds-v4를 만들었어요`, "mint");
-    }, 1400);
   }
 
   return (
     <div className="mt-4 animate-rise">
-      {toast.node}
       <div className="flex flex-wrap items-center gap-3 rounded-[24px] bg-ink p-4 text-white">
         <div className="min-w-0 flex-1 text-sm">
           <p className="text-base font-bold">
             검수 {decided.length} / {labelCandidates.length}
           </p>
           <p className="text-white/55">
-            철회 · 이관 · 👎 피드백이 익명 라벨 후보로 모였어요. 판정 임계값 {judgeThreshold.toFixed(2)} 바로 아래 점수부터 보여줘요.
+            철회 · 이관 · 👎 피드백이 익명 라벨 후보로 모였어요. 판정 임계값 {judgeThreshold.toFixed(2)} 바로 아래 점수부터 보여줘요. 승인 · 수정한 {accepted}건은 다음 데이터셋 ds-v4에 들어가요.
           </p>
         </div>
         <Progress value={(decided.length / labelCandidates.length) * 100} className="w-full !bg-white/15 md:w-48" color="bg-mint" />
-        {merged ? (
-          <span className="flex items-center gap-1.5 rounded-full bg-mint px-4 py-2 text-sm font-semibold text-ink">
-            <Icon name="check" size={15} /> ds-v4 병합 완료
-          </span>
-        ) : (
-          <Button variant="white" size="sm" icon="layers" disabled={accepted === 0 || merging} onClick={merge}>
-            {merging ? "학습서버로 보내는 중…" : `승인 ${accepted}건 병합`}
-          </Button>
-        )}
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {reviewOrder.map((c) => {
           const d = labelDecisions[c.id];
           const final = d === "approve" ? c.suggested : d === "flip" ? flip(c.suggested) : null;
-          const ch = choosing[c.id];
           return (
             <div key={c.id} className={`flex flex-col rounded-[24px] bg-white p-5 transition-opacity ${d ? "opacity-60" : ""}`}>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -219,61 +176,28 @@ function ReviewView() {
                   <p className="mt-0.5 font-bold">{labelText[c.suggested]}</p>
                 </div>
               </div>
-              {c.evidence && <p className="mt-3 text-xs leading-relaxed text-ink/60">검수 메모: {c.evidence}</p>}
+              {c.evidence && <p className="mt-3 text-xs leading-relaxed text-ink/60">근거: {c.evidence}</p>}
 
               <div className="mt-auto pt-4">
                 {d ? (
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1.5 text-sm font-semibold">
-                        <Icon name={d === "exclude" ? "x" : "check"} size={16} />
-                        {d === "exclude" ? "학습에서 제외" : `${withParticle(labelText[final!])} 확정${d === "flip" ? " · 수정" : ""}`}
-                      </span>
-                      {!merged && (
-                        <button onClick={() => decide(c.id, null)} className="flex items-center gap-1 text-xs text-muted underline underline-offset-4">
-                          <Icon name="undo" size={13} /> 되돌리기
-                        </button>
-                      )}
-                    </div>
-                    {labelEvidence[c.id] && <p className="mt-1.5 text-xs text-ink/60">정답 근거: {labelEvidence[c.id]}</p>}
-                  </div>
-                ) : ch ? (
-                  <div className="rounded-2xl bg-paper p-3">
-                    <p className="text-xs font-semibold text-ink/70">AI 답변 가능으로 확정하려면 정답 근거를 골라 주세요</p>
-                    <div role="radiogroup" aria-label="정답 근거" className="mt-2 space-y-1.5">
-                      {c.evidenceOptions.map((ev) => (
-                        <button
-                          key={ev}
-                          role="radio"
-                          aria-checked={ch.evidence === ev}
-                          onClick={() => setChoosing((m) => ({ ...m, [c.id]: { ...ch, evidence: ev } }))}
-                          className={`flex w-full items-start gap-2 rounded-xl bg-white p-2.5 text-left text-xs ring-inset ${ch.evidence === ev ? "ring-2 ring-ink" : ""}`}
-                        >
-                          <span className={`mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-white ${ch.evidence === ev ? "bg-ink" : "bg-ink/10"}`}>
-                            <Icon name="check" size={10} stroke={3.2} />
-                          </span>
-                          {ev}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-2.5 flex gap-2">
-                      <Button size="sm" className="flex-1" icon="check" disabled={!ch.evidence} onClick={() => ch.evidence && decide(c.id, ch.d, ch.evidence)}>
-                        근거와 함께 확정
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => closeChoice(c.id)}>
-                        취소
-                      </Button>
-                    </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold">
+                      <Icon name={d === "exclude" ? "x" : "check"} size={16} />
+                      {d === "exclude" ? "학습에서 제외" : `${withParticle(labelText[final!])} 확정${d === "flip" ? " · 수정" : ""}`}
+                    </span>
+                    <button onClick={() => decide(c.id, null)} className="flex items-center gap-1 text-xs text-muted underline underline-offset-4">
+                      <Icon name="undo" size={13} /> 되돌리기
+                    </button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <Button size="sm" className="flex-1" icon="check" disabled={merged} onClick={() => pick(c, "approve")}>
+                    <Button size="sm" className="flex-1" icon="check" onClick={() => decide(c.id, "approve")}>
                       승인
                     </Button>
-                    <Button size="sm" variant="soft" className="flex-1" icon="pen" disabled={merged} onClick={() => pick(c, "flip")}>
+                    <Button size="sm" variant="soft" className="flex-1" icon="pen" onClick={() => decide(c.id, "flip")}>
                       {withParticle(labelText[flip(c.suggested)])} 수정
                     </Button>
-                    <Button size="sm" variant="ghost" disabled={merged} onClick={() => pick(c, "exclude")}>
+                    <Button size="sm" variant="ghost" onClick={() => decide(c.id, "exclude")}>
                       제외
                     </Button>
                   </div>

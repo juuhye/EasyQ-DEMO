@@ -1,15 +1,15 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { FakeQR } from "@/components/FakeQR";
 import { Bubble, Logo, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
-import { QrModal, QrReissue } from "@/components/QrModal";
+import { QrModal } from "@/components/QrModal";
 import { SourceChips } from "@/components/SourceChips";
 import { Button, Empty, Modal, RoundButton, useToast } from "@/components/ui";
 import { type AiQuestion, findLecture, incomingQuestions, initialTranscript, liveAiQuestions, livePublicQuestions, type PublicQuestion, toneCycle, transcriptScript } from "@/lib/mock";
-import { setDemo, useDemo } from "@/lib/store";
+import { setDemo } from "@/lib/store";
 
 type Stt = "off" | "listening" | "paused" | "reconnecting";
 
@@ -18,19 +18,13 @@ function clock(offsetSec = 0) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-type RetractReason = "evidence" | "self";
-
-const retractReasons: { value: RetractReason; label: string; desc: string }[] = [
-  { value: "evidence", label: "근거가 부족해요", desc: "답변이 교안 · 발화 근거와 맞지 않거나 정확하지 않아요." },
-  { value: "self", label: "제가 직접 답변할게요", desc: "질문을 강연자 질문 목록으로 옮겨 강의 중에 다뤄요." },
-];
+const SILENCE_MS = 30_000;
 
 export default function LiveDashboard() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
   const lecture = findLecture(id) ?? findLecture("l1")!;
-  const code = useDemo().codes[lecture.id] ?? lecture.code;
 
   const [qs, setQs] = useState<PublicQuestion[]>(livePublicQuestions);
   const [ai, setAi] = useState<AiQuestion[]>(liveAiQuestions);
@@ -42,11 +36,13 @@ export default function LiveDashboard() {
   const [qrOpen, setQrOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
   const [retractId, setRetractId] = useState<string | null>(null);
-  const [retractReason, setRetractReason] = useState<RetractReason | null>(null);
   const [openAi, setOpenAi] = useState<string | null>("a2");
   const [mobileTab, setMobileTab] = useState<"board" | "ai" | "stt">("board");
   const scriptIdx = useRef(0);
   const incomingIdx = useRef(0);
+  const ticks = useRef(0);
+  const lastHeard = useRef(0);
+  const [silent, setSilent] = useState(false);
   const transcriptBox = useRef<HTMLDivElement>(null);
 
   const showToast = toast.show;
@@ -79,12 +75,15 @@ export default function LiveDashboard() {
     };
   }, [showToast]);
 
-  // 실시간 STT 자막 + 10분 제한 재연결 시뮬레이션
+  // 실시간 STT 자막 + 10분 제한 재연결 + 무음 구간 시뮬레이션
   useEffect(() => {
     if (stt !== "listening") return;
     const t = setInterval(() => {
+      const tick = ticks.current++;
+      if (tick >= 8 && tick < 16) return; // 무음 구간 (약 36초)
       const text = transcriptScript[scriptIdx.current % transcriptScript.length];
       scriptIdx.current++;
+      lastHeard.current = Date.now();
       setLines((l) => [...l.slice(-30), { at: clock(), text }]);
       if (scriptIdx.current === 5) {
         setStt("reconnecting");
@@ -92,6 +91,17 @@ export default function LiveDashboard() {
       }
     }, 4500);
     return () => clearInterval(t);
+  }, [stt]);
+
+  // 장시간 무음 경고 (F3-4): 인식 중인데 30초 넘게 발화가 없으면 알려준다
+  useEffect(() => {
+    if (stt !== "listening") return;
+    lastHeard.current = Date.now();
+    const t = setInterval(() => setSilent(Date.now() - lastHeard.current > SILENCE_MS), 1000);
+    return () => {
+      clearInterval(t);
+      setSilent(false);
+    };
   }, [stt]);
 
   useEffect(() => {
@@ -105,19 +115,14 @@ export default function LiveDashboard() {
     toast.show(q?.status === "done" ? "다시 대기로 돌렸어요" : "답변 완료! 질문자에게 알렸어요", q?.status === "done" ? "ink" : "mint");
   }
 
-  function openRetract(id: string) {
-    setRetractReason(null);
-    setRetractId(id);
-  }
-
+  // 철회하면 답변을 숨기고 질문을 공개 목록으로 옮긴다 (F6-4)
   function retract() {
     const target = ai.find((q) => q.id === retractId);
-    if (!target || !retractReason) return;
+    if (!target) return;
     setAi((list) => list.map((q) => (q.id === target.id ? { ...q, retracted: true } : q)));
-    // 직접 답변을 고르면 강연자 질문 목록으로 옮긴다
-    if (retractReason === "self") setQs((list) => [...list, { id: target.id, text: target.text, page: null, likes: 0, status: "waiting", at: target.at, isNew: true }]);
+    setQs((list) => [...list, { id: target.id, text: target.text, page: Number(target.sources.find((src) => src.kind === "slide")?.label.match(/\d+/)?.[0]) || null, likes: 0, status: "waiting", at: target.at, isNew: true }]);
     setRetractId(null);
-    toast.show(retractReason === "self" ? "AI 답변을 철회하고 질문 목록으로 옮겼어요" : "AI 답변을 철회하고 질문자에게 알렸어요", "coral");
+    toast.show("AI 답변을 철회하고 질문을 공개 목록으로 옮겼어요", "coral");
   }
 
   function endLecture() {
@@ -126,10 +131,14 @@ export default function LiveDashboard() {
   }
 
   const waiting = qs.filter((q) => q.status === "waiting");
-  const visible = qs.filter((q) => !hideDone || q.status === "waiting").sort((a, b) => {
-    if (a.status !== b.status) return a.status === "waiting" ? -1 : 1;
-    return sort === "likes" ? b.likes - a.likes : (a.page ?? 999) - (b.page ?? 999);
-  });
+  // 페이지순이면 교안 페이지별로 묶고(F6-2), 묶음 안에서는 대기 → 공감순
+  const visible = qs
+    .filter((q) => !hideDone || q.status === "waiting")
+    .sort((a, b) => {
+      if (sort === "page" && a.page !== b.page) return (a.page ?? 999) - (b.page ?? 999);
+      if (a.status !== b.status) return a.status === "waiting" ? -1 : 1;
+      return b.likes - a.likes;
+    });
   const total = qs.length + ai.length;
   const aiRate = Math.round((ai.filter((a) => !a.retracted).length / total) * 100);
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
@@ -211,37 +220,45 @@ export default function LiveDashboard() {
             <div>
               {visible.map((q, i) => {
                 const done = q.status === "done";
+                const groupStart = sort === "page" && (i === 0 || visible[i - 1].page !== q.page);
                 return (
-                  <Bubble
-                    key={q.id}
-                    tone={toneCycle[i % toneCycle.length]}
-                    tail={i % 2 ? "right" : "left"}
-                    muted={done}
-                    className={`mb-[18px] ${i ? "-mt-1" : ""} ${q.isNew ? "animate-pop" : ""}`}
-                    style={{ zIndex: visible.length - i }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-full ${done ? "bg-white/60" : "bg-ink text-white"}`}>
-                        <Icon name="heart" size={15} />
-                        <span className="text-lg font-extrabold leading-none tabular-nums">{q.likes}</span>
+                  <Fragment key={q.id}>
+                    {groupStart && (
+                      <p className={`mb-2 flex items-center gap-2 text-sm font-bold ${i ? "mt-6" : ""}`}>
+                        {q.page ? `교안 ${q.page}p` : "일반 질문"}
+                        <span className="font-normal text-muted">{visible.filter((x) => x.page === q.page).length}개</span>
+                      </p>
+                    )}
+                    <Bubble
+                      tone={toneCycle[i % toneCycle.length]}
+                      tail={i % 2 ? "right" : "left"}
+                      muted={done}
+                      className={`mb-[18px] ${i && !groupStart ? "-mt-1" : ""} ${q.isNew ? "animate-pop" : ""}`}
+                      style={{ zIndex: visible.length - i }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-full ${done ? "bg-white/60" : "bg-ink text-white"}`}>
+                          <Icon name="heart" size={15} />
+                          <span className="text-lg font-extrabold leading-none tabular-nums">{q.likes}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="mb-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink/55">
+                            <b className="text-ink">{q.page ? `교안 ${q.page}p` : "일반"}</b>
+                            {q.at}
+                            {q.isNew && <span className="rounded-full bg-ink px-2 py-0.5 font-bold text-white">NEW</span>}
+                          </p>
+                          <p className={`text-[16px] font-medium leading-snug ${done ? "text-ink/45 line-through decoration-ink/30" : ""}`}>{q.text}</p>
+                        </div>
+                        <button
+                          onClick={() => toggleDone(q.id)}
+                          className={`flex h-11 shrink-0 items-center gap-1 rounded-full px-4 text-sm font-semibold transition-all ${done ? "bg-white/60 text-ink/60 hover:bg-white" : "bg-white text-ink hover:bg-white/80"}`}
+                        >
+                          <Icon name={done ? "undo" : "check"} size={16} stroke={2.6} />
+                          <span className="hidden sm:inline">{done ? "완료 취소" : "답변 완료"}</span>
+                        </button>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="mb-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink/55">
-                          <b className="text-ink">{q.page ? `교안 ${q.page}p` : "일반"}</b>
-                          {q.at}
-                          {q.isNew && <span className="rounded-full bg-ink px-2 py-0.5 font-bold text-white">NEW</span>}
-                        </p>
-                        <p className={`text-[16px] font-medium leading-snug ${done ? "text-ink/45 line-through decoration-ink/30" : ""}`}>{q.text}</p>
-                      </div>
-                      <button
-                        onClick={() => toggleDone(q.id)}
-                        className={`flex h-11 shrink-0 items-center gap-1 rounded-full px-4 text-sm font-semibold transition-all ${done ? "bg-white/60 text-ink/60 hover:bg-white" : "bg-white text-ink hover:bg-white/80"}`}
-                      >
-                        <Icon name={done ? "undo" : "check"} size={16} stroke={2.6} />
-                        <span className="hidden sm:inline">{done ? "완료 취소" : "답변 완료"}</span>
-                      </button>
-                    </div>
-                  </Bubble>
+                    </Bubble>
+                  </Fragment>
                 );
               })}
               {visible.length === 0 && <Empty emoji="🎉" title="대기 중인 질문이 없어요!" />}
@@ -291,23 +308,26 @@ export default function LiveDashboard() {
                       </p>
                     ))}
                     {stt === "paused" && <p className="pt-2 text-center text-xs text-honey">일시정지 중 · 이 동안의 발화는 인식하지 않아요</p>}
+                    {silent && stt === "listening" && (
+                      <p className="sticky bottom-0 flex items-center gap-1.5 rounded-xl bg-honey px-3 py-2 text-xs font-semibold text-ink">
+                        <Icon name="alert" size={14} className="shrink-0" />
+                        {SILENCE_MS / 1000}초 넘게 말소리가 들리지 않아요. 마이크가 꺼졌거나 음소거됐는지 확인해 주세요.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* QR */}
               <div className="mt-4 flex items-center gap-4 rounded-[28px] bg-white p-4">
-                <FakeQR code={code} size={96} />
+                <FakeQR code={lecture.code} size={96} />
                 <div className="flex-1">
                   <p className="text-xs text-muted">입장 코드</p>
-                  <p className="text-3xl font-extrabold tracking-[0.2em]">{code}</p>
+                  <p className="text-3xl font-extrabold tracking-[0.2em]">{lecture.code}</p>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <Button size="sm" variant="soft" icon="expand" onClick={() => setQrOpen(true)}>
-                    전체 화면
-                  </Button>
-                  <QrReissue lectureId={lecture.id} onDone={(c) => toast.show(`새 입장 코드 ${c}를 만들었어요. 이전 QR은 꺼졌어요`, "mint")} />
-                </div>
+                <Button size="sm" variant="soft" icon="expand" onClick={() => setQrOpen(true)}>
+                  전체 화면
+                </Button>
               </div>
             </section>
 
@@ -342,7 +362,7 @@ export default function LiveDashboard() {
                           <SourceChips sources={q.sources} />
                           {!q.retracted && (
                             <div className="mt-3 flex justify-end">
-                              <Button size="sm" variant="soft" icon="undo" onClick={() => openRetract(q.id)}>
+                              <Button size="sm" variant="soft" icon="undo" onClick={() => setRetractId(q.id)}>
                                 답변 철회
                               </Button>
                             </div>
@@ -358,39 +378,16 @@ export default function LiveDashboard() {
         </div>
       </main>
 
-      <QrModal open={qrOpen} onClose={() => setQrOpen(false)} code={code} title={lecture.title} />
+      <QrModal open={qrOpen} onClose={() => setQrOpen(false)} code={lecture.code} title={lecture.title} />
 
       <Modal open={!!retractId} onClose={() => setRetractId(null)} title="이 AI 답변을 철회할까요?">
         <p className="rounded-2xl bg-white p-3.5 font-bold">{ai.find((a) => a.id === retractId)?.text}</p>
-        <p className="mt-5 text-sm font-semibold text-ink/70">철회 사유를 골라 주세요</p>
-        <div role="radiogroup" aria-label="철회 사유" className="mt-2 space-y-2">
-          {retractReasons.map((r) => {
-            const on = retractReason === r.value;
-            return (
-              <button
-                key={r.value}
-                role="radio"
-                aria-checked={on}
-                onClick={() => setRetractReason(r.value)}
-                className={`flex w-full gap-3 rounded-[20px] bg-white p-3.5 text-left ring-inset transition-all ${on ? "ring-2 ring-ink" : "ring-0"}`}
-              >
-                <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${on ? "bg-ink" : "bg-ink/10"}`}>
-                  <Icon name="check" size={14} stroke={3.2} />
-                </span>
-                <span>
-                  <span className="block font-bold">{r.label}</span>
-                  <span className="mt-0.5 block text-sm leading-relaxed text-muted">{r.desc}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-3 text-xs leading-relaxed text-muted">질문자 화면에서 답변이 가려지고 철회 알림이 가요. 철회한 답변은 판정 모델 재학습 데이터로 쓰여요.</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted">질문자 화면에서 답변이 가려지고, 질문은 공개 목록으로 옮겨져 강연 중에 다룰 수 있어요. 철회한 답변은 판정 모델 재학습 데이터로 쓰여요.</p>
         <div className="mt-6 flex gap-2">
           <Button variant="soft" className="flex-1" onClick={() => setRetractId(null)}>
             취소
           </Button>
-          <Button className="flex-1" onClick={retract} disabled={!retractReason}>
+          <Button className="flex-1" onClick={retract}>
             철회하기
           </Button>
         </div>

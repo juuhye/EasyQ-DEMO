@@ -49,7 +49,7 @@ export default function Archive() {
                 <Folder
                   tone={a.tone}
                   title={a.title}
-                  sub={`질문 ${a.myQuestions.length}개${a.summary === "ready" ? " · 요약 노트" : ""}`}
+                  sub={`질문 ${a.myQuestions.length}개${a.summary === "ready" ? " · 요약 노트" : a.summary === "generating" ? " · 요약 노트 생성 중" : ""}`}
                   stickers={paperStickers[a.id] ?? [a.emoji]}
                   corner={<Avatar name={a.speaker} size={26} />}
                 />
