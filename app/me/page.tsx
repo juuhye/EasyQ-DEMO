@@ -42,7 +42,6 @@ export default function Me() {
         </div>
         <p className="mt-3 text-[26px] font-extrabold tracking-[-0.04em]">{name}</p>
         <p className="text-sm text-muted">{me.email}</p>
-        <p className="mt-1.5 text-sm">🔥 {me.streak}주 연속 참여 중</p>
       </div>
 
       <div className="px-5">
@@ -55,23 +54,6 @@ export default function Me() {
             <div key={l}>
               <p className="text-[26px] font-extrabold tracking-[-0.04em]">{n}</p>
               <p className="text-xs text-muted">{l}</p>
-            </div>
-          ))}
-        </div>
-
-        <p className="mb-3 mt-8 text-[19px] font-bold tracking-[-0.03em]">배지 보관함</p>
-        <div className="grid grid-cols-4 gap-2 md:max-w-md md:gap-3">
-          {[
-            ["🏅", "첫 질문"],
-            ["🔥", "4주 연속"],
-            ["💛", "공감 50"],
-            ["🔒", "???"],
-          ].map(([e, l]) => (
-            <div key={l} className="flex flex-col items-center gap-1.5">
-              <span className={`flex aspect-square w-full items-center justify-center rounded-[20px] text-3xl ${l === "???" ? "bg-sand" : "bg-white"}`}>
-                <span className={l === "???" ? "opacity-40" : "sticker"}>{e}</span>
-              </span>
-              <span className="text-[11px] text-muted">{l}</span>
             </div>
           ))}
         </div>

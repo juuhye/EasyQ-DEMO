@@ -18,7 +18,6 @@ export const toneCycle: Tone[] = ["coral", "honey", "leaf", "ocean", "grape", "m
 export const me = {
   name: "주혜",
   email: "juhye@gachon.ac.kr",
-  streak: 4,
 };
 
 // ── 강연자: 내 강의 ───────────────────────────────
