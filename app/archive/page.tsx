@@ -5,10 +5,11 @@ import { useState } from "react";
 import { Avatar, Folder } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Empty, PageTitle, RoundButton, Screen, inputCls } from "@/components/ui";
-import { archive } from "@/lib/mock";
+import { archiveWith } from "@/lib/mock";
 import { useDemo } from "@/lib/store";
 
 const paperStickers: Record<string, string[]> = {
+  r0: ["🤖", "🧠", "🔤"],
   r1: ["🖼️", "🎨", "🌫️"],
   r2: ["🧩", "📊", "🧮"],
   r3: ["🚀", "💡", "🗒️"],
@@ -16,10 +17,10 @@ const paperStickers: Record<string, string[]> = {
 };
 
 export default function Archive() {
-  const { deletedArchives } = useDemo();
+  const { deletedArchives, endedLectures } = useDemo();
   const [q, setQ] = useState("");
   const [searching, setSearching] = useState(false);
-  const items = archive.filter((a) => !deletedArchives.includes(a.id)).filter((a) => !q || a.title.includes(q) || a.speaker.includes(q));
+  const items = archiveWith(endedLectures).filter((a) => !deletedArchives.includes(a.id)).filter((a) => !q || a.title.includes(q) || a.speaker.includes(q));
 
   return (
     <Screen nav>

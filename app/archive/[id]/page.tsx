@@ -7,14 +7,15 @@ import { Icon } from "@/components/Icon";
 import { SummaryNote } from "@/components/SummaryNote";
 import { SourceChips } from "@/components/SourceChips";
 import { Button, Empty, Modal, RoundButton, Screen, Tabs, TopBar, useToast } from "@/components/ui";
-import { archive } from "@/lib/mock";
-import { setDemo } from "@/lib/store";
+import { archiveWith } from "@/lib/mock";
+import { setDemo, useDemo } from "@/lib/store";
 
 export default function ArchiveDetail() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const item = archive.find((a) => a.id === id);
+  const { endedLectures, memos } = useDemo();
+  const item = archiveWith(endedLectures).find((a) => a.id === id);
   const [tab, setTab] = useState<"note" | "mine" | "all">("note");
   const [questions, setQuestions] = useState(item?.myQuestions ?? []);
   const [confirm, setConfirm] = useState<null | { kind: "one"; qid: string } | { kind: "all" }>(null);
@@ -112,9 +113,20 @@ export default function ArchiveDetail() {
               .sort((a, b) => b.likes - a.likes)
               .map((q) => (
                 <div key={q.id} className="flex items-center gap-3 rounded-[24px] bg-white p-4">
-                  <p className="flex-1 text-[15px] leading-snug">{q.text}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] leading-snug">{q.text}</p>
+                    <p className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${q.status === "done" ? "bg-mint/18 text-mint-ink" : "bg-honey/35 text-ink/70"}`}>
+                      {q.status === "done" ? "답변 완료" : "미완료"}
+                    </p>
+                    {(memos[q.id] ?? q.memo)?.trim() && (
+                      <p className="mt-2 flex gap-1.5 rounded-2xl bg-paper px-3 py-2 text-sm text-ink/70">
+                        <Icon name="pen" size={14} className="mt-0.5 shrink-0" />
+                        {memos[q.id] ?? q.memo}
+                      </p>
+                    )}
+                  </div>
                   <span
-                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold ${q.liked ? "bg-ink text-white" : "bg-sand text-ink/50"}`}
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold ${q.liked ? "bg-ink text-white" : "bg-sand text-ink/50"}`}
                     aria-label={q.liked ? `내가 공감함 · 공감 ${q.likes}` : `공감 ${q.likes}`}
                   >
                     <Icon name="heart" size={14} /> {q.likes}

@@ -130,18 +130,20 @@ export default function Join() {
               on={agree.keep}
               onClick={() => setAgree((a) => ({ ...a, keep: !a.keep }))}
               title="질문 · 답변 기록 보관"
+              required
               desc="질문과 답변은 강의가 끝난 뒤 정해진 기간 동안 보관되고 자동으로 지워져요. 음성 원본은 저장하지 않아요."
             />
             <Consent
               on={agree.learn}
               onClick={() => setAgree((a) => ({ ...a, learn: !a.learn }))}
               title="AI 개선을 위한 익명 활용"
+              required={false}
               desc="이름 · 이메일을 뺀 질문 문장만 AI 판정 모델 개선에 쓰여요."
             />
           </div>
-          <p className="mt-3 text-xs text-muted">두 항목 모두 동의해야 입장할 수 있어요.</p>
+          <p className="mt-3 text-xs text-muted">필수 항목에 동의해야 입장할 수 있어요. 선택 항목은 동의하지 않아도 돼요.</p>
 
-          <Button size="lg" className="mt-auto w-full" disabled={!agree.keep || !agree.learn} onClick={() => setStep("who")}>
+          <Button size="lg" className="mt-auto w-full" disabled={!agree.keep} onClick={() => setStep("who")}>
             동의하고 계속
           </Button>
         </div>
@@ -188,14 +190,16 @@ export default function Join() {
   );
 }
 
-function Consent({ on, onClick, title, desc }: { on: boolean; onClick: () => void; title: string; desc: string }) {
+function Consent({ on, onClick, title, desc, required }: { on: boolean; onClick: () => void; title: string; desc: string; required: boolean }) {
   return (
     <button onClick={onClick} className={`flex w-full gap-3 rounded-[22px] bg-white p-4 text-left ring-inset transition-all ${on ? "ring-2 ring-ink" : "ring-0"}`}>
       <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${on ? "bg-ink" : "bg-ink/10"} text-white`}>
         <Icon name="check" size={14} stroke={3.2} />
       </span>
       <span>
-        <span className="block font-bold">{title}</span>
+        <span className="block font-bold">
+          {title} <span className={`font-semibold ${required ? "text-coral-ink" : "text-muted"}`}>({required ? "필수" : "선택"})</span>
+        </span>
         <span className="mt-1 block text-sm leading-relaxed text-muted">{desc}</span>
       </span>
     </button>

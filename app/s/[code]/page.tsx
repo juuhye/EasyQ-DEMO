@@ -7,7 +7,7 @@ import { Icon } from "@/components/Icon";
 import { Button, Empty, Modal, RoundButton, Screen, Tabs, useToast } from "@/components/ui";
 import { SourceChips } from "@/components/SourceChips";
 import { cannedAnswers, findLectureByCode, liveAiQuestions, livePublicQuestions, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
-import { useDemo } from "@/lib/store";
+import { setDemo, useDemo } from "@/lib/store";
 
 type Mine = {
   id: string;
@@ -370,6 +370,23 @@ export default function AudienceLive() {
 
 function BoardBubble({ q, i, total, onLike }: { q: PublicQuestion; i: number; total: number; onLike: () => void }) {
   const done = q.status === "done";
+  const memo = useDemo().memos[q.id] ?? "";
+  const [writing, setWriting] = useState(false);
+  const [editing, setEditing] = useState(!memo);
+  const [draft, setDraft] = useState(memo);
+
+  // 완료를 눌러야 메모가 저장되고, 강의가 끝나면 보관함 전체 질문에 붙는다
+  function saveMemo() {
+    const text = draft.trim();
+    setDemo((s) => {
+      const memos = { ...s.memos };
+      if (text) memos[q.id] = text;
+      else delete memos[q.id];
+      return { memos };
+    });
+    setDraft(text);
+    setEditing(!text);
+  }
   return (
     <Bubble
       tone={toneCycle[i % toneCycle.length]}
@@ -401,7 +418,63 @@ function BoardBubble({ q, i, total, onLike }: { q: PublicQuestion; i: number; to
           <Icon name="heart" size={15} />
           <span className="text-xs font-bold leading-none">{q.likes}</span>
         </button>
+        <button
+          onClick={() => {
+            setWriting((v) => !v);
+            setDraft(memo);
+            setEditing(!memo);
+          }}
+          aria-label={writing ? "메모 닫기" : "메모 열기"}
+          aria-pressed={writing}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all ${writing ? "bg-ink text-white" : "bg-white/55 text-ink hover:bg-white/80"}`}
+        >
+          <Icon name="pen" size={16} />
+        </button>
       </div>
+      {writing ? (
+        editing ? (
+          <form
+            className="mt-3 flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveMemo();
+            }}
+          >
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              maxLength={MAX}
+              autoFocus
+              placeholder="나만 보는 메모 · 강의가 끝나면 보관함에 남아요"
+              className="h-11 min-w-0 flex-1 rounded-full bg-white px-4 text-sm outline-none placeholder:text-ink/30"
+            />
+            <button type="submit" disabled={!draft.trim() && !memo} className="h-11 shrink-0 rounded-full bg-ink px-4 text-sm font-semibold text-white disabled:opacity-40">
+              완료
+            </button>
+          </form>
+        ) : (
+          <div className="mt-3 flex items-center gap-2 rounded-2xl bg-white/55 py-1.5 pl-3 pr-1.5 text-sm text-ink/70">
+            <Icon name="pen" size={14} className="shrink-0" />
+            <p className="min-w-0 flex-1">{memo}</p>
+            <button
+              onClick={() => {
+                setDraft(memo);
+                setEditing(true);
+              }}
+              className="h-9 shrink-0 rounded-full bg-white px-3.5 text-sm font-semibold text-ink"
+            >
+              수정
+            </button>
+          </div>
+        )
+      ) : (
+        memo.trim() && (
+          <p className="mt-3 flex gap-1.5 rounded-2xl bg-white/55 px-3 py-2 text-sm text-ink/70">
+            <Icon name="pen" size={14} className="mt-0.5 shrink-0" />
+            {memo}
+          </p>
+        )
+      )}
     </Bubble>
   );
 }

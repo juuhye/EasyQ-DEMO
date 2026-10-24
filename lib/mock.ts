@@ -266,8 +266,8 @@ export type ArchiveItem = {
   summary: "ready" | "generating" | "failed" | "none";
   note?: { headline: string; sections: { title: string; points: string[] }[]; keywords: string[] };
   myQuestions: { id: string; text: string; kind: "ai" | "forwarded"; answer?: string; sources?: Source[]; status?: "waiting" | "done"; retracted?: boolean }[];
-  // 강연자에게 전달된 전체 질문. liked는 내가 공감한 질문
-  questions: { id: string; text: string; likes: number; status: "waiting" | "done"; liked: boolean }[];
+  // 강연자에게 전달된 전체 질문. liked는 내가 공감한 질문, memo는 강의 중 남긴 개인 메모
+  questions: { id: string; text: string; likes: number; status: "waiting" | "done"; liked: boolean; memo?: string }[];
 };
 
 export const archive: ArchiveItem[] = [
@@ -293,10 +293,10 @@ export const archive: ArchiveItem[] = [
       { id: "m3", text: "guidance scale을 너무 올리면 어떻게 되나요?", kind: "ai", answer: "조건을 더 강하게 따르지만, 지나치면 색이 과포화되고 다양성이 줄어요.", sources: [{ kind: "speech", label: "발화 15:42", quote: "7에서 8 정도가 무난하고 너무 올리면 그림이 타요." }] },
     ],
     questions: [
-      { id: "k1", text: "GAN이랑 비교했을 때 단점은 뭔가요?", likes: 19, status: "done", liked: true },
+      { id: "k1", text: "GAN이랑 비교했을 때 단점은 뭔가요?", likes: 19, status: "done", liked: true, memo: "샘플링이 느린 게 가장 큰 단점. 기말 비교 문제로 나올 듯" },
       { id: "k2", text: "과제에서 사전학습 모델 써도 되나요?", likes: 14, status: "done", liked: true },
-      { id: "k5", text: "Stable Diffusion은 왜 latent 공간에서 학습하나요?", likes: 11, status: "done", liked: false },
-      { id: "k6", text: "샘플링 단계를 줄이면 품질이 얼마나 떨어지나요?", likes: 7, status: "done", liked: false },
+      { id: "k5", text: "Stable Diffusion은 왜 latent 공간에서 학습하나요?", likes: 11, status: "done", liked: false, memo: "VAE로 압축한 공간에서 학습 → 연산량 감소. 논문 찾아보기" },
+      { id: "k6", text: "샘플링 단계를 줄이면 품질이 얼마나 떨어지나요?", likes: 7, status: "done", liked: false, memo: "DDIM 쓰면 50단계로도 괜찮다고 함" },
       { id: "k7", text: "중간고사 범위에 이번 특강 내용도 들어가나요?", likes: 3, status: "waiting", liked: false },
     ],
   },
@@ -322,7 +322,7 @@ export const archive: ArchiveItem[] = [
     ],
     questions: [
       { id: "k3", text: "배낭 문제 공간 복잡도 줄이는 방법도 시험에 나오나요?", likes: 22, status: "done", liked: true },
-      { id: "k8", text: "점화식 세우는 연습은 어떤 문제로 하면 좋을까요?", likes: 15, status: "done", liked: false },
+      { id: "k8", text: "점화식 세우는 연습은 어떤 문제로 하면 좋을까요?", likes: 15, status: "done", liked: false, memo: "추천: 계단 오르기 → LIS → 배낭 순서로 풀기" },
       { id: "k9", text: "그리디랑 DP는 어떻게 구분하나요?", likes: 9, status: "done", liked: false },
     ],
   },
@@ -355,11 +355,43 @@ export const archive: ArchiveItem[] = [
     },
     myQuestions: [],
     questions: [
-      { id: "k11", text: "layout이랑 template은 뭐가 달라요?", likes: 12, status: "done", liked: false },
+      { id: "k11", text: "layout이랑 template은 뭐가 달라요?", likes: 12, status: "done", liked: false, memo: "template은 이동할 때마다 새로 마운트됨" },
       { id: "k4", text: "pages 라우터 프로젝트도 계속 써도 되나요?", likes: 8, status: "done", liked: true },
     ],
   },
 ];
+
+// 진행 중인 강의(l1)가 끝나면 청중 보관함에 생기는 기록
+export const transformerNote = {
+  headline: "단어끼리 서로를 바라보는 셀프 어텐션으로 RNN 없이 문맥을 읽는 트랜스포머",
+  sections: [
+    { title: "핵심 개념", points: ["Q · K 내적으로 관련도를 구하고 softmax 가중치로 V를 섞는다 (교안 12p)", "√dₖ로 나눠 softmax 쏠림과 기울기 소실을 막는다", "멀티헤드로 여러 관계를 동시에 본다 (h = 8)"] },
+    { title: "구조", points: ["인코더 · 디코더 각각 6층, 층마다 Add & Norm", "디코더는 미래 토큰을 가리는 masked self-attention을 쓴다", "cross-attention: Query는 디코더, Key · Value는 인코더 출력"] },
+    { title: "청중이 많이 물은 것", points: ["포지셔널 인코딩: 고정(sin/cos) vs 학습형", "학습 시 병렬화가 가능한 이유 (teacher forcing)"] },
+  ],
+  keywords: ["Self-Attention", "Multi-Head", "Positional Encoding", "Masking", "Cross-Attention"],
+};
+
+const liveArchive: ArchiveItem = {
+  id: "r0",
+  title: lectures[0].title,
+  speaker: "주혜",
+  date: lectures[0].date.slice(0, 10),
+  tone: lectures[0].tone,
+  emoji: lectures[0].emoji,
+  summary: "ready",
+  note: transformerNote,
+  myQuestions: [
+    ...liveAiQuestions.filter((q) => q.mine).map((q) => ({ id: q.id, text: q.text, kind: "ai" as const, answer: q.answer, sources: q.sources })),
+    ...livePublicQuestions.filter((q) => q.mine).map((q) => ({ id: q.id, text: q.text, kind: "forwarded" as const, status: q.status })),
+  ],
+  questions: livePublicQuestions.map((q) => ({ id: q.id, text: q.text, likes: q.likes, status: q.status, liked: !!q.liked })),
+};
+
+// 종료된 강의를 반영한 보관함 목록
+export function archiveWith(endedLectures: string[]) {
+  return endedLectures.includes(lectures[0].id) ? [liveArchive, ...archive] : archive;
+}
 
 // 지난 강의 리포트용 질문 기록
 export const pastQuestionLog = [

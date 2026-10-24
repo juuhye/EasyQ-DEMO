@@ -6,18 +6,8 @@ import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { SummaryNote } from "@/components/SummaryNote";
 import { Button, Empty, Modal, RoundButton, Screen, StatusPill, Tabs, TopBar } from "@/components/ui";
-import { archive, findLecture, pageHistogram, pastQuestionLog } from "@/lib/mock";
+import { archive, findLecture, pageHistogram, pastQuestionLog, transformerNote } from "@/lib/mock";
 import { setDemo } from "@/lib/store";
-
-const transformerNote = {
-  headline: "단어끼리 서로를 바라보는 셀프 어텐션으로 RNN 없이 문맥을 읽는 트랜스포머",
-  sections: [
-    { title: "핵심 개념", points: ["Q · K 내적으로 관련도를 구하고 softmax 가중치로 V를 섞는다 (교안 12p)", "√dₖ로 나눠 softmax 쏠림과 기울기 소실을 막는다", "멀티헤드로 여러 관계를 동시에 본다 (h = 8)"] },
-    { title: "구조", points: ["인코더 · 디코더 각각 6층, 층마다 Add & Norm", "디코더는 미래 토큰을 가리는 masked self-attention을 쓴다", "cross-attention: Query는 디코더, Key · Value는 인코더 출력"] },
-    { title: "청중이 많이 물은 것", points: ["포지셔널 인코딩: 고정(sin/cos) vs 학습형", "학습 시 병렬화가 가능한 이유 (teacher forcing)"] },
-  ],
-  keywords: ["Self-Attention", "Multi-Head", "Positional Encoding", "Masking", "Cross-Attention"],
-};
 
 export default function Report() {
   const { id } = useParams<{ id: string }>();

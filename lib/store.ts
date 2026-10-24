@@ -11,6 +11,8 @@ type DemoState = {
   endedLectures: string[];
   created: { id: string; title: string; date: string; time: string; desc: string } | null;
   guestName: string | null;
+  // 모두의 질문에 남긴 개인 메모 (질문 id → 메모)
+  memos: Record<string, string>;
   // 관리자 웹
   admin: string | null;
   servingVersion: string;
@@ -25,6 +27,7 @@ let state: DemoState = {
   endedLectures: [],
   created: null,
   guestName: null,
+  memos: {},
   admin: null,
   servingVersion: "v1.1",
   retrained: false,
