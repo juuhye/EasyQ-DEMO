@@ -33,7 +33,7 @@ function now() {
 export default function AudienceLive() {
   const { code } = useParams<{ code: string }>();
   const lecture = findLectureByCode(code);
-  const { name, guestName } = useDemo();
+  const { name, guestName, endedLectures } = useDemo();
   const toast = useToast();
 
   const [tab, setTab] = useState<"ask" | "board" | "mine">("ask");
@@ -47,7 +47,8 @@ export default function AudienceLive() {
   const [text, setText] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [sort, setSort] = useState<"likes" | "page">("likes");
-  const [ended, setEnded] = useState(false);
+  // 강연자나 관리자가 강의를 종료하면 청중 화면에도 반영
+  const ended = !!lecture && endedLectures.includes(lecture.id);
 
   // 실시간 이벤트 시뮬레이션: 다른 청중의 공감, 강연자 답변 완료, AI 답변 철회
   const showToast = toast.show;
@@ -248,9 +249,6 @@ export default function AudienceLive() {
                   <span className="text-ink">AI가 나에게만</span> 답해요. 아니면 <span className="text-ink">강연자에게 전달</span>{" "}
                   <Sticker size={24} rotate={8}>📮</Sticker> 돼요.
                 </p>
-                <p className="mt-5 rounded-2xl bg-sand/70 p-3 text-xs leading-relaxed text-ink/60">
-                  데모 팁 · ‘어텐션’, ‘마스킹’, ‘인코더’, ‘포지셔널’이 들어가면 AI 답변, 그 밖에는 강연자에게 전달돼요.
-                </p>
               </div>
             )}
           </div>
@@ -350,14 +348,11 @@ export default function AudienceLive() {
           </div>
         )}
 
-        <button onClick={() => setEnded(true)} className="mb-6 mt-auto self-center text-xs text-muted underline underline-offset-4">
-          데모: 강의 종료 상태 보기
-        </button>
       </div>
 
       <Modal open={notiOpen} onClose={() => setNotiOpen(false)} title="알림">
         {notis.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">아직 알림이 없어요. 잠시 기다리면 데모 알림이 도착해요.</p>
+          <p className="py-6 text-center text-sm text-muted">아직 알림이 없어요. 새 소식이 생기면 알려드릴게요.</p>
         ) : (
           <ul className="space-y-2">
             {notis.map((n) => (

@@ -119,9 +119,6 @@ export default function LectureDetail() {
                 <p className="mt-1 text-xs text-muted">최대 {MAX_MB}MB · 텍스트가 없는 스캔 PDF는 읽을 수 없어요</p>
               </button>
               <input ref={inputRef} type="file" accept=".pdf,.pptx" className="hidden" onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
-              <button onClick={() => start({ name: "sample_lecture.pdf", pages: 36, chunks: 0, state: "processing" })} className="mt-2 w-full text-center text-xs text-muted underline underline-offset-4">
-                데모: 샘플 교안으로 올리기
-              </button>
               {fileError && <p className="mt-2 text-center text-sm text-[#e5484d]">{fileError}</p>}
             </>
           )}

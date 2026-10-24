@@ -15,7 +15,7 @@ export default function ArchiveDetail() {
   const router = useRouter();
   const toast = useToast();
   const item = archive.find((a) => a.id === id);
-  const [tab, setTab] = useState<"note" | "mine" | "liked">("note");
+  const [tab, setTab] = useState<"note" | "mine" | "all">("note");
   const [questions, setQuestions] = useState(item?.myQuestions ?? []);
   const [confirm, setConfirm] = useState<null | { kind: "one"; qid: string } | { kind: "all" }>(null);
 
@@ -64,7 +64,7 @@ export default function ArchiveDetail() {
           tabs={[
             { value: "note", label: "요약 노트" },
             { value: "mine", label: "내 질문", count: questions.length },
-            { value: "liked", label: "공감한 질문", count: item.liked.length },
+            { value: "all", label: "전체 질문", count: item.questions.length },
           ]}
         />
 
@@ -105,24 +105,29 @@ export default function ArchiveDetail() {
           </div>
         )}
 
-        {tab === "liked" && (
+        {tab === "all" && (
           <div className="animate-rise space-y-3 pt-4">
-            {item.liked.length === 0 && <Empty title="공감한 질문이 없어요" />}
-            {item.liked.map((q) => (
-              <div key={q.id} className="flex items-center gap-3 rounded-[24px] bg-white p-4">
-                <p className="flex-1 text-[15px] leading-snug">{q.text}</p>
-                <span className="flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-sm font-semibold text-white">
-                  <Icon name="heart" size={14} /> {q.likes}
-                </span>
-              </div>
-            ))}
+            {item.questions.length === 0 && <Empty title="강연자에게 전달된 질문이 없어요" />}
+            {[...item.questions]
+              .sort((a, b) => b.likes - a.likes)
+              .map((q) => (
+                <div key={q.id} className="flex items-center gap-3 rounded-[24px] bg-white p-4">
+                  <p className="flex-1 text-[15px] leading-snug">{q.text}</p>
+                  <span
+                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold ${q.liked ? "bg-ink text-white" : "bg-sand text-ink/50"}`}
+                    aria-label={q.liked ? `내가 공감함 · 공감 ${q.likes}` : `공감 ${q.likes}`}
+                  >
+                    <Icon name="heart" size={14} /> {q.likes}
+                  </span>
+                </div>
+              ))}
           </div>
         )}
       </div>
 
       <Modal open={!!confirm} onClose={() => setConfirm(null)} title={confirm?.kind === "all" ? "이 강의 기록을 모두 지울까요?" : "이 질문 기록을 지울까요?"}>
         <p className="text-sm leading-relaxed text-muted">
-          {confirm?.kind === "all" ? "요약 노트와 내 질문, 공감 기록이 모두 지워지고 되돌릴 수 없어요." : "내 보관함에서만 지워져요. 되돌릴 수 없어요."}
+          {confirm?.kind === "all" ? "요약 노트와 내 질문, 전체 질문 기록이 모두 지워지고 되돌릴 수 없어요." : "내 보관함에서만 지워져요. 되돌릴 수 없어요."}
         </p>
         <div className="mt-6 flex gap-2">
           <Button variant="ghost" className="flex-1" onClick={() => setConfirm(null)}>

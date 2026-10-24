@@ -5,20 +5,25 @@ import { useState } from "react";
 import { Logo, Sticker } from "@/components/Brand";
 import { Button, Field, Screen, inputCls } from "@/components/ui";
 import { adminAccount } from "@/lib/admin";
+import { login, type LoginField } from "@/lib/auth";
 import { setDemo } from "@/lib/store";
 
 export default function AdminLogin() {
   const router = useRouter();
   const [email, setEmail] = useState(adminAccount.email);
   const [pw, setPw] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ field: LoginField; message: string } | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || !pw) return setError("이메일과 비밀번호를 입력해 주세요.");
-    if (email !== adminAccount.email) return setError("관리자 권한이 없는 계정이에요. 일반 회원은 관리자 화면에 들어올 수 없어요.");
-    if (pw.length < 4) return setError("비밀번호가 맞지 않아요.");
-    setDemo({ admin: email });
+    if (loading) return;
+    setLoading(true);
+    const res = await login(email, pw, "admin").catch(() => ({ ok: false as const, field: "form" as const, message: "잠시 후 다시 시도해 주세요." }));
+    setLoading(false);
+    if (!res.ok) return setError(res);
+    setError(null);
+    setDemo({ admin: res.email });
     router.push("/admin");
   }
 
@@ -42,18 +47,22 @@ export default function AdminLogin() {
         </div>
 
         <div className="mt-8 space-y-4">
-          <Field label="관리자 이메일">
+          <Field label="관리자 이메일" error={error?.field === "email" ? error.message : undefined}>
             <input className={inputCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@easyq.kr" />
           </Field>
-          <Field label="비밀번호" error={error}>
+          <Field label="비밀번호" error={error?.field === "pw" ? error.message : undefined}>
             <input className={inputCls} type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호" autoFocus />
           </Field>
         </div>
-        <p className="mt-3 text-xs text-muted">데모: {adminAccount.email} + 아무 비밀번호(4자 이상). 다른 이메일은 권한 없음으로 막혀요.</p>
+        {error?.field === "form" && (
+          <p role="alert" className="mt-4 rounded-2xl bg-coral/15 p-3.5 text-sm text-coral-ink">
+            {error.message}
+          </p>
+        )}
 
         <div className="mt-auto pb-10 pt-8">
-          <Button size="lg" className="w-full" type="submit" icon="shield">
-            관리자 화면으로
+          <Button size="lg" className="w-full" type="submit" icon="shield" disabled={loading}>
+            {loading ? "확인 중…" : "관리자 화면으로"}
           </Button>
         </div>
       </form>

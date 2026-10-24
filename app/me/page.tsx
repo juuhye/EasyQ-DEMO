@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Avatar, Sticker } from "@/components/Brand";
 import { Icon, type IconName } from "@/components/Icon";
 import { Button, Field, Modal, Screen, inputCls, useToast } from "@/components/ui";
+import { MOCK_PASSWORD } from "@/lib/auth";
 import { archive, inquiries, lectures, me, notices } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
@@ -120,11 +121,10 @@ export default function Me() {
             <input type="password" className={inputCls} value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
           </Field>
         </div>
-        <p className="mt-2 text-xs text-muted">데모: 현재 비밀번호 1234가 맞는 값이에요.</p>
         <Button
           className="mt-4 w-full"
           onClick={() => {
-            if (pw.cur !== "1234") return setPwError("현재 비밀번호가 맞지 않아요.");
+            if (pw.cur !== MOCK_PASSWORD) return setPwError("현재 비밀번호가 맞지 않아요.");
             if (!(pw.next.length >= 8 && /[a-zA-Z]/.test(pw.next) && /\d/.test(pw.next))) return setPwError("새 비밀번호 규칙을 확인해 주세요.");
             setPwError("");
             setPw({ cur: "", next: "" });

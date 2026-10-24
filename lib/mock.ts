@@ -266,7 +266,8 @@ export type ArchiveItem = {
   summary: "ready" | "generating" | "failed" | "none";
   note?: { headline: string; sections: { title: string; points: string[] }[]; keywords: string[] };
   myQuestions: { id: string; text: string; kind: "ai" | "forwarded"; answer?: string; sources?: Source[]; status?: "waiting" | "done"; retracted?: boolean }[];
-  liked: { id: string; text: string; likes: number; status: "waiting" | "done" }[];
+  // 강연자에게 전달된 전체 질문. liked는 내가 공감한 질문
+  questions: { id: string; text: string; likes: number; status: "waiting" | "done"; liked: boolean }[];
 };
 
 export const archive: ArchiveItem[] = [
@@ -291,9 +292,12 @@ export const archive: ArchiveItem[] = [
       { id: "m2", text: "Stable Diffusion은 왜 latent 공간에서 하나요?", kind: "forwarded", status: "done" },
       { id: "m3", text: "guidance scale을 너무 올리면 어떻게 되나요?", kind: "ai", answer: "조건을 더 강하게 따르지만, 지나치면 색이 과포화되고 다양성이 줄어요.", sources: [{ kind: "speech", label: "발화 15:42", quote: "7에서 8 정도가 무난하고 너무 올리면 그림이 타요." }] },
     ],
-    liked: [
-      { id: "k1", text: "GAN이랑 비교했을 때 단점은 뭔가요?", likes: 19, status: "done" },
-      { id: "k2", text: "과제에서 사전학습 모델 써도 되나요?", likes: 14, status: "done" },
+    questions: [
+      { id: "k1", text: "GAN이랑 비교했을 때 단점은 뭔가요?", likes: 19, status: "done", liked: true },
+      { id: "k2", text: "과제에서 사전학습 모델 써도 되나요?", likes: 14, status: "done", liked: true },
+      { id: "k5", text: "Stable Diffusion은 왜 latent 공간에서 학습하나요?", likes: 11, status: "done", liked: false },
+      { id: "k6", text: "샘플링 단계를 줄이면 품질이 얼마나 떨어지나요?", likes: 7, status: "done", liked: false },
+      { id: "k7", text: "중간고사 범위에 이번 특강 내용도 들어가나요?", likes: 3, status: "waiting", liked: false },
     ],
   },
   {
@@ -316,7 +320,11 @@ export const archive: ArchiveItem[] = [
       { id: "m4", text: "메모이제이션이랑 그리디는 어떻게 구분하나요?", kind: "ai", answer: "그리디는 매 순간 최선만 고르고 되돌아보지 않지만, DP는 모든 부분 문제의 답을 저장해 비교해요. 그리디가 최적임이 증명될 때만 그리디를 써요.", sources: [{ kind: "slide", label: "교안 5p", quote: "Greedy vs DP: 선택의 되돌림 여부" }] },
       { id: "m5", text: "코딩테스트에서 재귀 깊이 제한 걸리면 어떻게 하나요?", kind: "forwarded", status: "done" },
     ],
-    liked: [{ id: "k3", text: "배낭 문제 공간 복잡도 줄이는 방법도 시험에 나오나요?", likes: 22, status: "done" }],
+    questions: [
+      { id: "k3", text: "배낭 문제 공간 복잡도 줄이는 방법도 시험에 나오나요?", likes: 22, status: "done", liked: true },
+      { id: "k8", text: "점화식 세우는 연습은 어떤 문제로 하면 좋을까요?", likes: 15, status: "done", liked: false },
+      { id: "k9", text: "그리디랑 DP는 어떻게 구분하나요?", likes: 9, status: "done", liked: false },
+    ],
   },
   {
     id: "r3",
@@ -327,7 +335,10 @@ export const archive: ArchiveItem[] = [
     emoji: "🚀",
     summary: "failed",
     myQuestions: [{ id: "m6", text: "인터뷰 대상자는 몇 명 정도가 적당한가요?", kind: "forwarded", status: "done" }],
-    liked: [],
+    questions: [
+      { id: "m6", text: "인터뷰 대상자는 몇 명 정도가 적당한가요?", likes: 6, status: "done", liked: false },
+      { id: "k10", text: "랜딩 페이지 테스트는 광고비를 얼마나 써야 하나요?", likes: 4, status: "done", liked: false },
+    ],
   },
   {
     id: "r4",
@@ -343,7 +354,10 @@ export const archive: ArchiveItem[] = [
       keywords: ["App Router", "Layout", "Dynamic Route"],
     },
     myQuestions: [],
-    liked: [{ id: "k4", text: "pages 라우터 프로젝트도 계속 써도 되나요?", likes: 8, status: "done" }],
+    questions: [
+      { id: "k11", text: "layout이랑 template은 뭐가 달라요?", likes: 12, status: "done", liked: false },
+      { id: "k4", text: "pages 라우터 프로젝트도 계속 써도 되나요?", likes: 8, status: "done", liked: true },
+    ],
   },
 ];
 

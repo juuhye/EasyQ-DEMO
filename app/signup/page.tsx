@@ -53,7 +53,7 @@ export default function Signup() {
           </p>
           <div className="mt-auto w-full space-y-3 pb-10">
             <Button href="/login" size="lg" className="w-full">
-              인증 완료했어요 (데모)
+              로그인하러 가기
             </Button>
             <Button variant="white" size="lg" className="w-full" onClick={() => toast.show("인증 메일을 다시 보냈어요")}>
               메일 다시 보내기

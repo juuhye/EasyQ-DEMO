@@ -70,7 +70,6 @@ export default function Join() {
                   📷
                 </Sticker>
                 <p className="mt-4 text-lg font-bold">눌러서 QR 스캔하기</p>
-                <p className="mt-1 text-xs text-white/50">데모: 진행 중인 강의로 바로 연결돼요</p>
               </div>
             )}
           </button>
