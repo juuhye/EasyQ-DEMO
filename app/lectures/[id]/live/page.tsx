@@ -20,6 +20,13 @@ function clock(offsetSec = 0) {
 
 const SILENCE_MS = 30_000;
 
+type RetractReason = "evidence" | "self";
+
+const retractReasons: { value: RetractReason; label: string; desc: string }[] = [
+  { value: "evidence", label: "근거가 부족해요", desc: "답변이 교안 · 발화 근거와 맞지 않거나 정확하지 않아요." },
+  { value: "self", label: "제가 직접 답변할게요", desc: "AI 답변 대신 강의 중에 직접 설명할게요." },
+];
+
 export default function LiveDashboard() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -37,6 +44,7 @@ export default function LiveDashboard() {
   const [qrOpen, setQrOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
   const [retractId, setRetractId] = useState<string | null>(null);
+  const [retractReason, setRetractReason] = useState<RetractReason | null>(null);
   const [openAi, setOpenAi] = useState<string | null>("a2");
   const [mobileTab, setMobileTab] = useState<"board" | "ai" | "stt">("board");
   const scriptIdx = useRef(0);
@@ -116,10 +124,15 @@ export default function LiveDashboard() {
     toast.show(q?.status === "done" ? "다시 대기로 돌렸어요" : "답변 완료! 질문자에게 알렸어요", q?.status === "done" ? "ink" : "mint");
   }
 
-  // 철회하면 답변을 숨기고 질문을 공개 목록으로 옮긴다 (F6-4)
+  function openRetract(id: string) {
+    setRetractReason(null);
+    setRetractId(id);
+  }
+
+  // 철회 사유를 고르면 답변을 숨기고 질문을 공개 목록으로 옮긴다 (F6-4)
   function retract() {
     const target = ai.find((q) => q.id === retractId);
-    if (!target) return;
+    if (!target || !retractReason) return;
     setAi((list) => list.map((q) => (q.id === target.id ? { ...q, retracted: true } : q)));
     setQs((list) => [...list, { id: target.id, text: target.text, page: Number(target.sources.find((src) => src.kind === "slide")?.label.match(/\d+/)?.[0]) || null, likes: 0, status: "waiting", at: target.at, isNew: true }]);
     setRetractId(null);
@@ -366,7 +379,7 @@ export default function LiveDashboard() {
                           <SourceChips sources={q.sources} />
                           {!q.retracted && (
                             <div className="mt-3 flex justify-end">
-                              <Button size="sm" variant="soft" icon="undo" onClick={() => setRetractId(q.id)}>
+                              <Button size="sm" variant="soft" icon="undo" onClick={() => openRetract(q.id)}>
                                 답변 철회
                               </Button>
                             </div>
@@ -386,12 +399,35 @@ export default function LiveDashboard() {
 
       <Modal open={!!retractId} onClose={() => setRetractId(null)} title="이 AI 답변을 철회할까요?">
         <p className="rounded-2xl bg-white p-3.5 font-bold">{ai.find((a) => a.id === retractId)?.text}</p>
-        <p className="mt-3 text-sm leading-relaxed text-muted">질문자 화면에서 답변이 가려지고, 질문은 공개 목록으로 옮겨져 강연 중에 다룰 수 있어요. 철회한 답변은 판정 모델 재학습 데이터로 쓰여요.</p>
+        <p className="mt-5 text-sm font-semibold text-ink/70">철회 사유를 골라 주세요</p>
+        <div role="radiogroup" aria-label="철회 사유" className="mt-2 space-y-2">
+          {retractReasons.map((r) => {
+            const on = retractReason === r.value;
+            return (
+              <button
+                key={r.value}
+                role="radio"
+                aria-checked={on}
+                onClick={() => setRetractReason(r.value)}
+                className={`flex w-full gap-3 rounded-[20px] bg-white p-3.5 text-left ring-inset transition-all ${on ? "ring-2 ring-ink" : "ring-0"}`}
+              >
+                <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${on ? "bg-ink" : "bg-ink/10"}`}>
+                  <Icon name="check" size={14} stroke={3.2} />
+                </span>
+                <span>
+                  <span className="block font-bold">{r.label}</span>
+                  <span className="mt-0.5 block text-sm leading-relaxed text-muted">{r.desc}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-muted">질문자 화면에서 답변이 가려지고, 질문은 공개 목록으로 옮겨져 강연 중에 다룰 수 있어요. 철회한 답변은 판정 모델 재학습 데이터로 쓰여요.</p>
         <div className="mt-6 flex gap-2">
           <Button variant="soft" className="flex-1" onClick={() => setRetractId(null)}>
             취소
           </Button>
-          <Button className="flex-1" onClick={retract}>
+          <Button className="flex-1" onClick={retract} disabled={!retractReason}>
             철회하기
           </Button>
         </div>
