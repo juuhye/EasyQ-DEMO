@@ -6,6 +6,7 @@ import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Screen, TopBar, useToast } from "@/components/ui";
 import { MOCK_VERIFY_CODE } from "@/lib/auth";
+import { DEMO } from "@/lib/demo";
 import { setDemo, useDemo } from "@/lib/store";
 
 const LENGTH = 6;
@@ -138,7 +139,7 @@ function Verify() {
             {left > 0 ? `${left}초 후 다시 보내기` : "코드 다시 보내기"}
           </button>
         </div>
-        <p className="mt-3 text-xs text-muted">데모 인증 코드 · {MOCK_VERIFY_CODE}</p>
+        {DEMO && <p className="mt-3 text-xs text-muted">데모 인증 코드 · {MOCK_VERIFY_CODE}</p>}
 
         <div className="mt-auto pb-10 pt-8">
           <Button size="lg" className="w-full" type="submit" disabled={code.length < LENGTH}>

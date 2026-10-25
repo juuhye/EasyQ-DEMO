@@ -15,6 +15,7 @@ const paperStickers: Record<string, string[]> = {
   r3: ["🚀", "💡", "🗒️"],
   r4: ["🧭", "⚛️", "📁"],
   r5: ["🗃️", "🔑", "🧮"],
+  r7: ["⚛️", "🔁", "🧠"],
 };
 
 const noteText = { ready: "요약 노트 있음", generating: "요약 노트 만드는 중", failed: "요약 노트 없음", none: "요약 노트 없음" };

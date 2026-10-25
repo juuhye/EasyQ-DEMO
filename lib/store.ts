@@ -40,6 +40,8 @@ type DemoState = {
   servingVersion: string;
   retrained: boolean;
   labelDecisions: Record<string, LabelDecision>;
+  // 데이터셋(ds-v4)에 병합한 확정 라벨 수. 재학습은 병합된 라벨로 한다 (설계 7장 병합 API)
+  mergedLabels: number;
   // 한 번이라도 서빙했던 버전 (롤백 대상)
   servedVersions: string[];
 };
@@ -65,6 +67,7 @@ let state: DemoState = {
   servingVersion: "v1.1",
   retrained: false,
   labelDecisions: {},
+  mergedLabels: 0,
   servedVersions: ["v1.0", "v1.1"],
 };
 

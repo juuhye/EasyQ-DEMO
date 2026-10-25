@@ -272,18 +272,34 @@ export default function LectureDetail() {
 
       <QrModal open={qrOpen} onClose={() => setQrOpen(false)} code={code} title={lecture.title} />
 
+      {/* [강연 시작] 경고: 교안 처리 중 / 처리 실패 */}
       <Modal open={warn} onClose={() => setWarn(false)}>
         <div className="flex flex-col items-center text-center">
           <Sticker size={56} rotate={-8}>
-            ⏳
+            {file?.state === "failed" ? "⚠️" : "⏳"}
           </Sticker>
-          <p className="mt-4 text-[22px] font-extrabold tracking-[-0.04em]">{file?.state === "failed" ? "교안 처리에 실패했어요" : "교안 준비가 아직 안 끝났어요"}</p>
+          <p className="mt-4 text-[22px] font-extrabold tracking-[-0.04em]">{file?.state === "failed" ? "교안 처리에 실패했어요" : "교안을 아직 처리하고 있어요"}</p>
           <p className="mt-2 text-sm leading-relaxed text-muted">지금 시작하면 AI가 교안을 근거로 쓰지 못해 더 많은 질문이 강연자에게 넘어올 수 있어요.</p>
         </div>
         <div className="mt-6 flex gap-2">
-          <Button variant="soft" className="flex-1" onClick={() => setWarn(false)}>
-            기다릴게요
-          </Button>
+          {/* 처리 실패는 기다려도 끝나지 않으니 다시 시도를 권한다 */}
+          {file?.state === "failed" ? (
+            <Button
+              variant="soft"
+              className="flex-1"
+              icon="undo"
+              onClick={() => {
+                setWarn(false);
+                start(file);
+              }}
+            >
+              다시 시도
+            </Button>
+          ) : (
+            <Button variant="soft" className="flex-1" onClick={() => setWarn(false)}>
+              기다릴게요
+            </Button>
+          )}
           <Button className="flex-1" onClick={() => begin(true)}>
             그래도 시작
           </Button>

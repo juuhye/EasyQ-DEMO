@@ -25,7 +25,7 @@ export default function Home() {
             <h1 className="text-[44px] font-extrabold leading-none tracking-[-0.05em] md:text-[56px]">오늘</h1>
             <p className="pt-1 text-right text-[15px] leading-tight">
               <span className="mr-1.5 inline-block h-1.5 w-1.5 -translate-y-0.5 rounded-full bg-coral" />
-              10월 15일
+              10월 22일
               <br />
               <span className="text-white/45">목요일</span>
             </p>

@@ -15,6 +15,9 @@ export const tones: Record<Tone, { hex: string; bg: string; soft: string; text: 
 // 말풍선 · 블록을 번갈아 칠할 때 쓰는 순서 (시안의 Chats 화면 순서)
 export const toneCycle: Tone[] = ["coral", "honey", "leaf", "ocean", "grape", "mint"];
 
+// 선택 동의(AI 개선을 위한 익명 활용) 설명. 게스트 입장 · 회원가입 · 내 정보에서 같이 쓴다
+export const LEARN_CONSENT_TEXT = "이름 · 이메일 · 닉네임 같은 개인정보를 뺀 질문 문장만 AI 판정 모델 개선에 쓰여요.";
+
 export const me = {
   name: "주혜",
   email: "juhye@gachon.ac.kr",
@@ -105,10 +108,32 @@ export const lectures: Lecture[] = [
     glossary: ["Pull Request", "Issue", "License", "Fork"],
     endReason: "auto",
   },
+  {
+    id: "l6",
+    title: "컴퓨터 네트워크 특강 · TCP 혼잡 제어",
+    date: "2026.09.24 (목)",
+    time: "15:00",
+    desc: "슬로 스타트와 혼잡 회피",
+    status: "ended",
+    code: "NT2C5",
+    tone: "coral",
+    emoji: "🌐",
+    file: { name: "tcp_congestion.pdf", pages: 22, chunks: 88, state: "done" },
+    audience: 57,
+    glossary: ["TCP", "Slow Start", "cwnd", "AIMD"],
+    endReason: "admin",
+  },
 ];
 
 export function findLecture(id: string) {
   return lectures.find((l) => l.id === id);
+}
+
+// 데모 시계. 새 질문 시각을 실제 시계 대신 진행 중 목업 강연 시간대(14:34부터)로 찍는다
+const demoStart = Date.now();
+export function demoClock() {
+  const min = 14 * 60 + 34 + Math.floor((Date.now() - demoStart) / 60_000);
+  return `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 }
 
 // 세션 정원 (N-08 동시 접속 목표)
@@ -190,7 +215,7 @@ export const liveAiQuestions: AiQuestion[] = [
       "Query는 ‘지금 내가 찾고 싶은 정보’, Key는 ‘각 단어가 가진 꼬리표’, Value는 ‘실제로 가져올 내용’이에요. Query와 Key의 내적으로 관련도를 계산하고, 그 가중치로 Value를 섞어 새 표현을 만들어요.",
     sources: [
       { kind: "slide", label: "교안 p.12", quote: "Attention(Q, K, V) = softmax(QKᵀ / √dₖ) V" },
-      { kind: "speech", label: "발화 14:16", quote: "도서관에서 검색어가 쿼리고, 책 제목이 키, 책 내용이 밸류라고 생각하시면 돼요." },
+      { kind: "speech", label: "발화 16:06", quote: "도서관에서 검색어가 쿼리고, 책 제목이 키, 책 내용이 밸류라고 생각하시면 돼요." },
     ],
     at: "14:17",
     score: 0.94,
@@ -213,7 +238,7 @@ export const liveAiQuestions: AiQuestion[] = [
     answer: "dₖ가 커지면 내적 값의 분산이 커져 softmax가 한쪽으로 쏠리고 기울기가 아주 작아져요. √dₖ로 나눠 값의 크기를 맞춰 학습을 안정시키는 거예요.",
     sources: [
       { kind: "slide", label: "교안 p.13", quote: "Scaled dot-product: 큰 dₖ에서 softmax 기울기 소실 방지" },
-      { kind: "speech", label: "발화 14:19", quote: "나누지 않으면 소프트맥스가 거의 원-핫처럼 돼 버려요." },
+      { kind: "speech", label: "발화 19:45", quote: "나누지 않으면 소프트맥스가 거의 원-핫처럼 돼 버려요." },
     ],
     at: "14:20",
     score: 0.91,
@@ -249,10 +274,11 @@ export const transcriptScript = [
   "질문 들어온 것 중에 포지셔널 인코딩 얘기가 많네요. 잠깐 짚고 갈게요.",
 ];
 
+// 인식 텍스트 시각은 강연 시작 기준 경과 시간(mm:ss)
 export const initialTranscript = [
-  { at: "14:31", text: "인코더 블록은 이렇게 여섯 번 쌓습니다. N은 6이에요." },
-  { at: "14:32", text: "각 블록 안에 multi-head attention이랑 feed-forward가 있고요." },
-  { at: "14:33", text: "residual connection 덕분에 깊게 쌓아도 학습이 잘 됩니다." },
+  { at: "31:05", text: "인코더 블록은 이렇게 여섯 번 쌓습니다. N은 6이에요." },
+  { at: "32:18", text: "각 블록 안에 multi-head attention이랑 feed-forward가 있고요." },
+  { at: "33:40", text: "residual connection 덕분에 깊게 쌓아도 학습이 잘 됩니다." },
 ];
 
 // 청중이 새 질문을 냈을 때 데모 판정: 교안 용어가 들어 있으면 AI 답변, 아니면 강연자에게 이관
@@ -262,7 +288,7 @@ export const cannedAnswers: { keys: string[]; answer: string; sources: Source[] 
     answer: "디코더의 마스킹은 아직 생성하지 않은 미래 토큰을 보지 못하게 어텐션 점수를 -∞로 가리는 거예요. 학습 때는 정답을 한 번에 넣으니 꼭 필요하고, 생성 때도 같은 구조를 그대로 써요.",
     sources: [
       { kind: "slide", label: "교안 p.26", quote: "Masked Multi-Head Attention: 위치 i는 i 이전만 참조" },
-      { kind: "speech", label: "발화 방금", quote: "미래 토큰을 못 보게 가리는 거죠." },
+      { kind: "speech", label: "발화 33:40", quote: "미래 토큰을 못 보게 가리는 거죠." },
     ],
   },
   {
@@ -270,7 +296,7 @@ export const cannedAnswers: { keys: string[]; answer: string; sources: Source[] 
     answer: "인코더는 입력 문장 전체를 보고 문맥 표현을 만들고, 디코더는 그 표현과 지금까지 만든 출력을 보고 다음 토큰을 만들어요. 둘 사이는 cross-attention으로 연결돼요.",
     sources: [
       { kind: "slide", label: "교안 p.21", quote: "Encoder × 6 → Decoder × 6, cross-attention으로 연결" },
-      { kind: "speech", label: "발화 14:32", quote: "Query는 디코더, Key와 Value는 인코더 출력에서 와요." },
+      { kind: "speech", label: "발화 32:34", quote: "Query는 디코더, Key와 Value는 인코더 출력에서 와요." },
     ],
   },
   {
@@ -285,10 +311,25 @@ export const cannedAnswers: { keys: string[]; answer: string; sources: Source[] 
   },
 ];
 
+// 웹 프로그래밍 6주차(l3) 요약 노트: 리포트와 보관함에서 같이 쓴다
+function reactStateNoteData() {
+  return {
+    headline: "React 상태를 어디에 둘지 고르는 기준: 지역 상태, 리듀서, Context",
+    sections: [
+      { title: "핵심 개념", points: ["지역 상태는 useState로 두고, 여러 컴포넌트가 쓰면 가까운 부모로 끌어올린다", "상태 변경 로직이 복잡하면 useReducer로 액션별 처리를 한곳에 모은다 (교안 p.12)", "Context 값이 바뀌면 구독하는 컴포넌트가 모두 리렌더된다 (교안 p.18)"] },
+      { title: "강연에서 강조한 점", points: ["setState는 바로 반영되지 않고 배치로 업데이트된다", "자주 바뀌는 값과 드물게 바뀌는 값은 Context를 나눠 담는다", "상태는 불변으로 다뤄야 변경을 감지할 수 있다"] },
+    ],
+    keywords: ["useState", "useReducer", "Context"],
+  };
+}
+export const reactStateNote = reactStateNoteData();
+
 // ── 청중: 내 보관함 ───────────────────────────────
 
 export type ArchiveItem = {
   id: string;
+  // 이 기록이 나온 강연 (입장 코드로 들어왔을 때 보관함 상세로 보내는 데 쓴다)
+  lectureId?: string;
   title: string;
   speaker: string;
   date: string;
@@ -302,6 +343,27 @@ export type ArchiveItem = {
 };
 
 export const archive: ArchiveItem[] = [
+  {
+    // 종료 강연 WB6R3(l3)에 청중으로 참여한 기록
+    id: "r7",
+    lectureId: "l3",
+    title: "웹 프로그래밍 6주차 · React 상태 관리",
+    speaker: "주혜",
+    date: "2026.10.08",
+    tone: "grape",
+    emoji: "⚛️",
+    summary: "ready",
+    note: reactStateNoteData(),
+    myQuestions: [
+      { id: "m9", text: "useReducer는 언제 useState 대신 쓰나요?", kind: "ai", answer: "다음 상태가 이전 상태와 액션 종류에 따라 여러 갈래로 바뀌면 useReducer가 좋아요. 변경 로직을 리듀서 한곳에 모을 수 있어요.", sources: [{ kind: "slide", label: "교안 p.12", quote: "useReducer(reducer, initialState)" }, { kind: "speech", label: "발화 18:24", quote: "상태 바뀌는 경우가 세 가지 넘어가면 리듀서로 빼세요." }] },
+      { id: "m10", text: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", kind: "forwarded", status: "done" },
+    ],
+    questions: [
+      { id: "m10", text: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", likes: 27, status: "done", liked: true, memo: "값을 쪼개서 Provider를 나누면 리렌더가 줄어듦" },
+      { id: "k13", text: "상태 관리 라이브러리는 실무에서 뭘 많이 쓰나요?", likes: 21, status: "done", liked: false },
+      { id: "k14", text: "과제에서 Redux를 써도 감점 없나요?", likes: 15, status: "done", liked: true },
+    ],
+  },
   {
     id: "r1",
     title: "컴퓨터 비전 특강 · Diffusion 모델",
@@ -320,8 +382,8 @@ export const archive: ArchiveItem[] = [
     },
     myQuestions: [
       { id: "m1", text: "노이즈 스케줄은 선형 말고 다른 것도 있나요?", kind: "ai", answer: "선형 외에 cosine 스케줄이 자주 쓰여요. 초반에 노이즈를 천천히 더해 이미지 정보가 더 오래 남게 해 줘요.", sources: [{ kind: "slide", label: "교안 p.9", quote: "β schedule: linear vs cosine" }] },
-      { id: "m2", text: "Stable Diffusion은 왜 latent 공간에서 하나요?", kind: "forwarded", status: "done" },
-      { id: "m3", text: "guidance scale을 너무 올리면 어떻게 되나요?", kind: "ai", answer: "조건을 더 강하게 따르지만, 지나치면 색이 과포화되고 다양성이 줄어요.", sources: [{ kind: "speech", label: "발화 15:42", quote: "7에서 8 정도가 무난하고 너무 올리면 그림이 타요." }], retracted: true },
+      { id: "m2", text: "Stable Diffusion은 왜 latent 공간에서 학습하나요?", kind: "forwarded", status: "done" },
+      { id: "m3", text: "guidance scale을 너무 올리면 어떻게 되나요?", kind: "ai", answer: "조건을 더 강하게 따르지만, 지나치면 색이 과포화되고 다양성이 줄어요.", sources: [{ kind: "speech", label: "발화 42:51", quote: "7에서 8 정도가 무난하고 너무 올리면 그림이 타요." }], retracted: true },
     ],
     questions: [
       { id: "k1", text: "GAN이랑 비교했을 때 단점은 뭔가요?", likes: 19, status: "done", liked: true, memo: "샘플링이 느린 게 가장 큰 단점. 기말 비교 문제로 나올 듯" },
@@ -411,6 +473,13 @@ export const archive: ArchiveItem[] = [
   },
 ];
 
+// 컴퓨터 네트워크 특강(l6) 리포트 요약 노트
+export const tcpNote = {
+  headline: "패킷 손실을 신호로 전송량을 조절하는 TCP 혼잡 제어",
+  sections: [{ title: "핵심 개념", points: ["슬로 스타트: cwnd를 RTT마다 두 배로 늘린다", "임계값을 넘으면 혼잡 회피로 1씩 늘린다 (AIMD)", "손실이 감지되면 cwnd를 줄이고 다시 늘린다"] }],
+  keywords: ["Slow Start", "cwnd", "AIMD"],
+};
+
 // 진행 중인 강연(l1)가 끝나면 청중 보관함에 생기는 기록
 export const transformerNote = {
   headline: "단어끼리 서로를 바라보는 셀프 어텐션으로 RNN 없이 문맥을 읽는 트랜스포머",
@@ -424,6 +493,7 @@ export const transformerNote = {
 
 const liveArchive: ArchiveItem = {
   id: "r0",
+  lectureId: "l1",
   title: lectures[0].title,
   speaker: "주혜",
   date: lectures[0].date.slice(0, 10),
@@ -443,6 +513,12 @@ const liveArchive: ArchiveItem = {
 // 종료된 강연을 반영한 보관함 목록
 export function archiveWith(endedLectures: string[]) {
   return endedLectures.includes(lectures[0].id) ? [liveArchive, ...archive] : archive;
+}
+
+// 종료된 강연에 회원으로 들어오면 갈 곳: 그 강연의 보관함 상세, 없으면 보관함 목록
+export function archiveHrefFor(lectureId: string, endedLectures: string[]) {
+  const item = archiveWith(endedLectures).find((a) => a.lectureId === lectureId);
+  return item ? `/archive/${item.id}` : "/archive";
 }
 
 // 지난 강연 리포트용 질문 기록. 리포트 통계 · 내 강연 목록의 숫자는 모두 여기서 계산한다
@@ -477,10 +553,17 @@ export const questionLogs: Record<string, LogEntry[]> = {
     { text: "good first issue는 어디서 찾나요?", kind: "ai", likes: 0, page: 12 },
     { text: "회사 코드를 오픈소스로 공개할 때 주의할 점은요?", kind: "forwarded", likes: 7, page: null },
   ],
+  l6: [
+    { text: "슬로 스타트는 왜 지수적으로 늘리나요?", kind: "ai", likes: 0, page: 6 },
+    { text: "cwnd랑 rwnd 중 작은 값을 쓰는 이유가 뭔가요?", kind: "ai", likes: 0, page: 9 },
+    { text: "QUIC도 같은 혼잡 제어를 쓰나요?", kind: "forwarded", likes: 13, page: 18, done: true },
+    { text: "BBR은 시험 범위에 들어가나요?", kind: "forwarded", likes: 8, page: null },
+  ],
 };
 
+// 철회된 AI 답변은 공개 목록으로 옮겨지므로 '강연자에게 온 질문'에 함께 센다
 export function logStats(log: LogEntry[]) {
-  const ai = log.filter((q) => q.kind === "ai").length;
+  const ai = log.filter((q) => q.kind === "ai" && !q.retracted).length;
   return {
     questions: log.length,
     ai,

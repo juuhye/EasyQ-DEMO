@@ -7,7 +7,8 @@ import { Icon } from "@/components/Icon";
 import { NoteModal } from "@/components/NoteModal";
 import { SourceChips } from "@/components/SourceChips";
 import { Button, Empty, RoundButton, Screen, Tabs, useToast } from "@/components/ui";
-import { SESSION_CAPACITY, cannedAnswers, resolveCode, statusOf, liveAiQuestions, livePublicQuestions, type Lecture, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
+import { DEMO } from "@/lib/demo";
+import { SESSION_CAPACITY, archiveHrefFor, cannedAnswers, demoClock, resolveCode, statusOf, liveAiQuestions, livePublicQuestions, type Lecture, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 // 내 질문 진행: 근거를 찾는 중 → 답변을 작성하는 중 → (답변 작성 중 표시 → 확정) 또는 강연자에게 전달됨
@@ -25,10 +26,8 @@ type Mine = {
 
 const Q_MAX = 200;
 
-function now() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
+// 새 질문 시각은 목업 강연 시간대 기준으로 찍는다
+const now = demoClock;
 
 export default function AudienceLive() {
   const { code } = useParams<{ code: string }>();
@@ -45,8 +44,8 @@ export default function AudienceLive() {
   const goArchive = !needsEntry && !isGuest && endedOnEntry;
   useEffect(() => {
     if (needsEntry) router.replace(`/join?code=${code.toUpperCase()}`);
-    else if (goArchive) router.replace(lecture?.id === "l1" ? "/archive/r0" : "/archive");
-  }, [needsEntry, goArchive, code, lecture?.id, router]);
+    else if (goArchive && lecture) router.replace(archiveHrefFor(lecture.id, endedLectures));
+  }, [needsEntry, goArchive, code, lecture, endedLectures, router]);
 
   if (needsEntry || goArchive) return <Screen>{null}</Screen>;
 
@@ -132,9 +131,11 @@ function Waiting({ lecture, who }: { lecture: Lecture; who: string }) {
           </div>
         </div>
         {/* 데모: 다른 기기의 강연자가 시작한 것처럼 바꾼다 */}
-        <button onClick={() => setDemo((s) => ({ startedLectures: [...s.startedLectures, lecture.id] }))} className="mx-auto text-xs text-muted underline underline-offset-4">
-          데모 · 강연자가 강연을 시작한 상황 보기
-        </button>
+        {DEMO && (
+          <button onClick={() => setDemo((s) => ({ startedLectures: [...s.startedLectures, lecture.id] }))} className="mx-auto text-xs text-muted underline underline-offset-4">
+            데모 · 강연자가 강연을 시작한 상황 보기
+          </button>
+        )}
       </div>
     </Screen>
   );
@@ -168,7 +169,7 @@ function GuestEnded({ lecture, who }: { lecture: Lecture; who: string }) {
 // 질문 화면 (LIVE). 참여 중에 강연이 끝나면 회원은 이 화면에서 보관함 안내를 본다
 function Room({ lecture, who, isGuest, ended }: { lecture: Lecture; who: string; isGuest: boolean; ended: boolean }) {
   const toast = useToast();
-  const { memos } = useDemo();
+  const { memos, endedLectures } = useDemo();
   // 데모 질문은 트랜스포머 강연(l1)에만 있다
   const seeded = lecture.id === "l1";
   const [tab, setTab] = useState<"ask" | "board" | "mine">("ask");
@@ -309,11 +310,10 @@ function Room({ lecture, who, isGuest, ended }: { lecture: Lecture; who: string;
               📦
             </Sticker>
             <div className="min-w-0 flex-1">
-              <p className="font-bold">강연이 끝났어요</p>
-              <p className="text-white/60">내 질문 · 필기와 요약 노트는 보관함에 저장돼요.</p>
+              <p className="font-bold">강연이 끝났어요. 질문과 요약 노트는 내 보관함에서 볼 수 있어요</p>
             </div>
-            <Button size="sm" variant="white" href={lecture.id === "l1" ? "/archive/r0" : "/archive"}>
-              보관함
+            <Button size="sm" variant="white" href={archiveHrefFor(lecture.id, endedLectures)}>
+              내 보관함에서 보기
             </Button>
           </div>
         )}

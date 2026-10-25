@@ -6,13 +6,14 @@ import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Field, Screen, TopBar, inputCls } from "@/components/ui";
 import { EMAIL_RE, pwRules as rules, pwValid } from "@/lib/auth";
+import { LEARN_CONSENT_TEXT } from "@/lib/mock";
 import { setDemo } from "@/lib/store";
 
 const consents = [
   { key: "terms", label: "서비스 이용약관 동의", required: true },
   { key: "privacy", label: "개인정보 수집 · 이용 동의", required: true },
   { key: "keep", label: "질문 · 답변 기록 보관 동의", required: true },
-  { key: "learn", label: "AI 개선을 위한 익명 활용 동의", required: false },
+  { key: "learn", label: "AI 개선을 위한 익명 활용 동의", required: false, desc: LEARN_CONSENT_TEXT },
 ];
 
 export default function Signup() {
@@ -92,12 +93,13 @@ export default function Signup() {
               <Check on={!!agree[c.key]} small />
               <span className="flex-1">
                 <span className={c.required ? "font-semibold text-coral-ink" : "text-muted"}>{c.required ? "(필수)" : "(선택)"}</span> {c.label}
+                {c.desc && <span className="mt-0.5 block text-xs text-muted">{c.desc}</span>}
               </span>
               <Icon name="right" size={16} className="text-muted" />
             </button>
           ))}
           <p className="mt-3 rounded-2xl bg-paper p-3 text-xs leading-relaxed text-muted">
-            음성 원본은 저장하지 않아요. 강연 데이터는 강연이 끝나고 3개월이 지나면 자동으로 지워지고, 학습에는 개인정보를 뺀 익명 데이터만 써요. 여기서 동의한 내용은 강연에 입장할 때마다 다시 묻지 않고, 마이페이지에서 바꿀 수 있어요.
+            음성 원본은 저장하지 않아요. 교안과 발화 같은 강연 자료는 강연이 끝나고 90일이 지나면 지워져요. 내 질문 · 답변 · 필기와 요약 노트는 탈퇴하기 전까지 내 보관함에 남아요. 학습에는 개인정보를 뺀 익명 데이터만 써요.
           </p>
         </div>
 

@@ -5,7 +5,8 @@ import { AdminTitle, Dot, Panel } from "@/components/admin";
 import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Modal, Pill, Progress, useToast } from "@/components/ui";
-import { LLM_ONLY, baseline, labelCandidates, lossCurve, modelVersions, retrainedVersion, rocPoints, servingConfig, targets, trainStages, type ModelVersion } from "@/lib/admin";
+import { LLM_ONLY, baseline, lossCurve, modelVersions, retrainedVersion, rocPoints, servingConfig, targets, trainStages, type ModelVersion } from "@/lib/admin";
+import { DEMO } from "@/lib/demo";
 import { setDemo, useDemo } from "@/lib/store";
 
 // 새 버전은 서빙 중인 버전보다 성능이 같거나 좋을 때만 전환할 수 있다 (F12-4)
@@ -20,7 +21,7 @@ function gate(v: ModelVersion, serving: ModelVersion) {
 const servingName = (id: string) => (id === LLM_ONLY ? "LLM_ONLY (Sonnet 단독 판정)" : `판정 모델 ${id}`);
 
 export default function AdminModels() {
-  const { servingVersion, retrained, labelDecisions, servedVersions } = useDemo();
+  const { servingVersion, retrained, mergedLabels, servedVersions } = useDemo();
   const versions = retrained ? [retrainedVersion, ...modelVersions] : modelVersions;
   const serving = versions.find((v) => v.id === servingVersion) ?? null;
   const [selected, setSelected] = useState(versions[0].id);
@@ -35,7 +36,8 @@ export default function AdminModels() {
   const showToast = toast.show;
   const finishing = useRef(false);
 
-  const accepted = labelCandidates.filter((c) => labelDecisions[c.id] && labelDecisions[c.id].label !== "exclude").length;
+  // 재학습은 데이터 · 라벨 화면에서 병합한 확정 라벨로 한다
+  const accepted = mergedLabels;
   const compareTo = serving ?? baseline;
   const everServed = (id: string) => servedVersions.includes(id);
   // 롤백 대상: 서빙한 적 있는 버전 + LLM_ONLY. 서빙한 적 없는 버전은 버전 비교를 거쳐 전환한다
@@ -119,9 +121,11 @@ export default function AdminModels() {
         title="서빙 설정"
         desc={`추론 경로: ${servingConfig.route} · 장애 시 ${servingConfig.fallback} → LLM_ONLY`}
         action={
-          <button onClick={() => setConnected((c) => !c)} className="text-xs text-muted underline underline-offset-4">
-            데모 · {connected ? "연결 끊김 보기" : "다시 연결"}
-          </button>
+          DEMO && (
+            <button onClick={() => setConnected((c) => !c)} className="text-xs text-muted underline underline-offset-4">
+              데모 · {connected ? "연결 끊김 보기" : "다시 연결"}
+            </button>
+          )
         }
       >
         {connected ? (
@@ -194,7 +198,7 @@ export default function AdminModels() {
                 {!connected ? (
                   <p className="mt-2 text-center text-xs text-muted">학습서버에 다시 연결되면 실행할 수 있어요</p>
                 ) : (
-                  accepted === 0 && <p className="mt-2 text-center text-xs text-muted">데이터 · 라벨 화면에서 라벨을 1건 이상 검수해 주세요</p>
+                  accepted === 0 && <p className="mt-2 text-center text-xs text-muted">데이터 · 라벨 화면에서 확정 라벨을 병합해 주세요</p>
                 )}
               </>
             )}
@@ -354,19 +358,13 @@ export default function AdminModels() {
                 </button>
               );
             const v = versions.find((x) => x.id === id)!;
-            const warn = v.wrongRate > targets.wrongRate;
             return (
               <button key={id} onClick={() => switchTo(id, "rollback")} className="flex w-full items-center justify-between gap-3 rounded-[18px] bg-white p-4 text-left hover:bg-white/70">
                 <span>
                   <span className="font-bold">판정 모델 {v.id}</span>
                   <span className="block text-xs text-muted">
-                    AUC {v.auc.toFixed(2)} · 오답 즉답률 <span className={warn ? "font-semibold text-coral-ink" : ""}>{v.wrongRate}%</span>
+                    AUC {v.auc.toFixed(2)} · 오답 즉답률 {v.wrongRate}%
                   </span>
-                  {warn && (
-                    <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-coral-ink">
-                      <Icon name="alert" size={12} /> 오답 즉답률이 목표({targets.wrongRate}% 이하)를 넘어요
-                    </span>
-                  )}
                 </span>
                 <Icon name="right" size={17} className="shrink-0" />
               </button>

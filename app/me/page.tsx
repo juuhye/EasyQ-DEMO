@@ -6,7 +6,7 @@ import { Avatar, Sticker } from "@/components/Brand";
 import { Icon, type IconName } from "@/components/Icon";
 import { Button, Field, Modal, Screen, inputCls, useToast } from "@/components/ui";
 import { MOCK_PASSWORD, pwValid } from "@/lib/auth";
-import { archiveWith, inquiries, lectures, me, notices, statusOf } from "@/lib/mock";
+import { LEARN_CONSENT_TEXT, archiveWith, inquiries, lectures, me, notices, statusOf } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 type Sheet = null | "name" | "pw" | "consent" | "notice" | "inquiry" | "reauth" | "leave";
@@ -133,7 +133,7 @@ export default function Me() {
               <span className="block font-bold">
                 AI 개선을 위한 익명 활용 <span className="font-semibold text-muted">(선택)</span>
               </span>
-              <span className="mt-1 block text-sm leading-relaxed text-muted">이름 · 이메일을 뺀 질문 문장만 AI 판정 모델 개선에 쓰여요.</span>
+              <span className="mt-1 block text-sm leading-relaxed text-muted">{LEARN_CONSENT_TEXT}</span>
             </span>
             <span className={`mt-0.5 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${consent.learn ? "bg-ink" : "bg-ink/15"}`}>
               <span className={`h-5 w-5 rounded-full bg-white transition-transform ${consent.learn ? "translate-x-5" : ""}`} />

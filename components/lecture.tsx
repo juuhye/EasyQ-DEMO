@@ -46,8 +46,8 @@ export function SttConsentModal({ open, onClose, onConfirm, noFile = false }: { 
       <p className="text-sm leading-relaxed text-muted">강연을 시작하면 마이크 음성을 실시간으로 인식해 AI 답변의 근거로 써요.</p>
       <ul className="mt-4 space-y-2 rounded-[20px] bg-white p-4 text-sm leading-relaxed">
         {[
-          ["🎙️", "음성은 인식에만 쓰고 원본 파일은 저장하지 않아요."],
-          ["📝", "인식된 발화 텍스트는 강연이 끝나고 3개월 뒤 자동으로 지워져요."],
+          ["🎙️", "강연 음성은 실시간으로 외부 음성 인식 서비스(Google Gemini)에 보내 텍스트로 바꿔요. 원본 파일은 저장하지 않아요."],
+          ["📝", "인식된 발화 텍스트는 강연이 끝나고 90일 뒤 자동으로 지워져요."],
           ["⏸️", "강연 중 언제든 인식을 일시정지할 수 있어요."],
         ].map(([e, t]) => (
           <li key={t} className="flex gap-2.5">

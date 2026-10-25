@@ -73,7 +73,7 @@ export default function AdminNotices() {
         onChange={setTab}
         tabs={[
           { value: "notice", label: "공지", count: notices.length },
-          { value: "inquiry", label: "문의", count: waiting },
+          { value: "inquiry", label: `문의 · 대기 ${waiting}` },
         ]}
       />
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AdminTitle, Dot, Panel } from "@/components/admin";
 import { Icon } from "@/components/Icon";
-import { Button, Pill, Progress, Tabs } from "@/components/ui";
+import { Button, Pill, Progress, Tabs, useToast } from "@/components/ui";
 import { datasets, forwardKinds, judgeThresholds, labelCandidates, labelText, type LabelCandidate } from "@/lib/admin";
 import { setDemo, useDemo, type LabelDecision } from "@/lib/store";
 const originTone = { 철회: "bg-coral/20", 이관: "bg-ocean/15", "피드백 👎": "bg-honey/40" };
@@ -122,7 +122,8 @@ function sameDecision(a: LabelDecision, b: NonNullable<LabelCandidate["other"]>)
 }
 
 function ReviewView() {
-  const { labelDecisions } = useDemo();
+  const { labelDecisions, mergedLabels } = useDemo();
+  const toast = useToast();
   const versions = Object.keys(judgeThresholds);
   const [version, setVersion] = useState(versions[0]);
   const [picked, setPicked] = useState<Record<string, string>>({});
@@ -131,6 +132,12 @@ function ReviewView() {
   const order = [...labelCandidates].sort((a, b) => Math.abs(a.scores[version] - threshold) - Math.abs(b.scores[version] - threshold));
   const decided = labelCandidates.filter((c) => labelDecisions[c.id]);
   const accepted = decided.filter((c) => labelDecisions[c.id].label !== "exclude").length;
+
+  // 확정 라벨을 다음 데이터셋에 병합한다 (설계 7장 병합 API). 재학습은 병합된 라벨로 한다
+  function merge() {
+    setDemo({ mergedLabels: accepted });
+    toast.show(`확정 ${accepted}건을 ds-v4에 병합했어요`, "mint");
+  }
   const conflicts = decided.filter((c) => c.other && !sameDecision(labelDecisions[c.id], c.other)).length;
 
   function decide(id: string, d: LabelDecision | null) {
@@ -150,15 +157,19 @@ function ReviewView() {
 
   return (
     <div className="mt-4 animate-rise">
+      {toast.node}
       <div className="flex flex-wrap items-center gap-3 rounded-[24px] bg-ink p-4 text-white">
         <div className="min-w-0 flex-1 text-sm">
           <p className="text-base font-bold">
             검수 {decided.length} / {labelCandidates.length}
             {conflicts > 0 && <span className="ml-2 rounded-full bg-coral px-2 py-0.5 text-xs text-ink">불일치 {conflicts}</span>}
           </p>
-          <p className="text-white/55">철회 · 이관 · 👎 피드백이 익명 라벨 후보로 모였어요. 확정한 {accepted}건은 다음 데이터셋 ds-v4에 들어가요.</p>
+          <p className="text-white/55">철회 · 이관 · 👎 피드백이 익명 라벨 후보로 모였어요. 확정한 {accepted}건을 병합하면 다음 데이터셋 ds-v4에 들어가요{mergedLabels > 0 && ` · 병합됨 ${mergedLabels}건`}.</p>
         </div>
         <Progress value={(decided.length / labelCandidates.length) * 100} className="w-full !bg-white/15 md:w-48" color="bg-mint" />
+        <Button size="sm" variant="white" icon="layers" disabled={accepted === 0} onClick={merge}>
+          확정 라벨 병합
+        </Button>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">

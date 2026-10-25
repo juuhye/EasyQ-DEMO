@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { AdminTitle, Panel } from "@/components/admin";
-import { Icon } from "@/components/Icon";
 import { EndReasonPill } from "@/components/lecture";
 import { Button, Empty, Modal, StatusPill, Tabs, useToast } from "@/components/ui";
 import { adminSessions, type AdminSession } from "@/lib/admin";
@@ -16,11 +15,10 @@ export default function AdminSessions() {
 
   const shown = list.filter((s) => tab === "all" || s.status === tab);
   const count = (st: AdminSession["status"]) => list.filter((s) => s.status === st).length;
-  const issues = list.filter((s) => s.status === "live" && s.issue);
 
   function forceEnd() {
     if (!target) return;
-    setList((l) => l.map((s) => (s.id === target.id ? { ...s, status: "ended", issue: undefined, endReason: "admin" } : s)));
+    setList((l) => l.map((s) => (s.id === target.id ? { ...s, status: "ended", endReason: "admin" } : s)));
     // 데모 강연자 · 청중 화면에도 종료가 반영되도록
     setDemo((s) => ({ endedLectures: [...s.endedLectures, target.id], endReasons: { ...s.endReasons, [target.id]: "admin" } }));
     toast.show("강연을 강제 종료했어요. 질문이 마감되고 QR이 꺼졌어요.", "coral");
@@ -38,25 +36,6 @@ export default function AdminSessions() {
     <>
       {toast.node}
       <AdminTitle desc="모든 회원의 강연을 보고, 평가용 강연을 표시하거나 문제가 생긴 강연을 강제로 종료해요">강연 관리</AdminTitle>
-
-      {issues.length > 0 && (
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
-          {issues.map((s) => (
-            <div key={s.id} className="flex items-start gap-3 rounded-[24px] bg-coral/15 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-coral">
-                <Icon name="alert" size={19} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold">{s.title}</p>
-                <p className="mt-0.5 text-sm text-coral-ink">{s.issue}</p>
-              </div>
-              <Button size="sm" variant="danger" onClick={() => setTarget(s)}>
-                강제 종료
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
 
       <Tabs
         className="mt-6"
@@ -95,7 +74,6 @@ export default function AdminSessions() {
                       <p className="font-semibold">{s.title}</p>
                       <p className="text-xs text-muted">
                         입장 코드 {s.code}
-                        {s.issue && <span className="ml-1.5 font-semibold text-coral-ink">· 확인 필요</span>}
                       </p>
                     </td>
                     <td className="py-3 text-ink/70">{s.speaker}</td>

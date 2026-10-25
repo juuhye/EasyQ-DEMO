@@ -13,9 +13,9 @@ export type Period = "today" | "week" | "month";
 export type Latency = { status: number | null; first: number | null; final: number | null };
 
 export const opsMetrics: Record<Period, { questions: number; aiRate: number; forwardRate: number; latency: Latency; cost: number; sessions: number }> = {
-  today: { questions: 214, aiRate: 56, forwardRate: 44, latency: { status: 0.3, first: 1.6, final: 2.4 }, cost: 3180, sessions: 3 },
-  week: { questions: 1342, aiRate: 54, forwardRate: 46, latency: { status: 0.3, first: 1.8, final: 2.6 }, cost: 18920, sessions: 14 },
-  month: { questions: 4870, aiRate: 52, forwardRate: 48, latency: { status: 0.4, first: 1.9, final: 2.7 }, cost: 41200, sessions: 38 },
+  today: { questions: 214, aiRate: 56, forwardRate: 44, latency: { status: 0.3, first: 1.6, final: 2.4 }, cost: 3375, sessions: 3 },
+  week: { questions: 1342, aiRate: 54, forwardRate: 46, latency: { status: 0.3, first: 1.8, final: 2.6 }, cost: 15750, sessions: 14 },
+  month: { questions: 4870, aiRate: 52, forwardRate: 48, latency: { status: 0.4, first: 1.9, final: 2.7 }, cost: 40500, sessions: 36 },
 };
 
 // 응답 시간 목표 (N-01: 최종 확정 p50 3초 이내)
@@ -50,7 +50,7 @@ export type Member = {
 };
 
 export const members: Member[] = [
-  { id: "u1", name: "주혜", email: "juhye@gachon.ac.kr", joined: "2026.09.18", lectures: 4, questions: 12, status: "active" },
+  { id: "u1", name: "주혜", email: "juhye@gachon.ac.kr", joined: "2026.09.18", lectures: 5, questions: 12, status: "active" },
   { id: "u2", name: "김서연", email: "seoyeon.k@gachon.ac.kr", joined: "2026.09.20", lectures: 5, questions: 3, status: "active" },
   { id: "u3", name: "박도윤", email: "doyoon@gachon.ac.kr", joined: "2026.09.21", lectures: 3, questions: 0, status: "active" },
   { id: "u4", name: "이하준", email: "hajun@startup.kr", joined: "2026.09.25", lectures: 1, questions: 7, status: "active" },
@@ -73,7 +73,6 @@ export type AdminSession = {
   audience: number;
   questions: number;
   code: string;
-  issue?: string;
   // 평가용 강연: 처리 로그를 평가셋으로 따로 모은다. 시작 전에만 바꿀 수 있다
   evaluation?: boolean;
   endReason?: EndReason;
@@ -81,11 +80,13 @@ export type AdminSession = {
 
 export const adminSessions: AdminSession[] = [
   { id: "l1", title: "인공지능 개론 7주차 · 트랜스포머", speaker: "주혜", status: "live", date: "2026.10.22 14:00", audience: 128, questions: 10, code: "QX7K2" },
-  { id: "s2", title: "경영학원론 · 마케팅 믹스", speaker: "오세훈", status: "live", date: "2026.10.22 13:30", audience: 212, questions: 141, code: "MK4P2", issue: "부적절한 질문 신고 5건 · 분당 질문 38건 급증" },
-  { id: "s3", title: "컴퓨터 비전 특강 · NeRF", speaker: "김서연", status: "live", date: "2026.10.22 15:00", audience: 47, questions: 9, code: "CV9N1", issue: "STT 재연결 4회 (10분 제한)" },
+  { id: "s2", title: "경영학원론 · 마케팅 믹스", speaker: "오세훈", status: "live", date: "2026.10.22 13:30", audience: 212, questions: 141, code: "MK4P2" },
+  { id: "s3", title: "컴퓨터 비전 특강 · NeRF", speaker: "김서연", status: "live", date: "2026.10.22 15:00", audience: 47, questions: 9, code: "CV9N1" },
   { id: "l2", title: "데이터베이스 설계 특강", speaker: "주혜", status: "ready", date: "2026.10.23 10:30", audience: 0, questions: 0, code: "DB4M8", evaluation: true },
   { id: "s5", title: "알고리즘 10주차 · 그래프 탐색", speaker: "박도윤", status: "ready", date: "2026.10.24 09:00", audience: 0, questions: 0, code: "AL0G5" },
   { id: "l3", title: "웹 프로그래밍 6주차 · React 상태 관리", speaker: "주혜", status: "ended", date: "2026.10.08 13:00", audience: 94, questions: 12, code: "WB6R3", endReason: "manual" },
+  { id: "l4", title: "오픈소스 SW 세미나", speaker: "주혜", status: "ended", date: "2026.10.01 16:00", audience: 61, questions: 6, code: "OS1S9", endReason: "auto" },
+  { id: "l6", title: "컴퓨터 네트워크 특강 · TCP 혼잡 제어", speaker: "주혜", status: "ended", date: "2026.09.24 15:00", audience: 57, questions: 4, code: "NT2C5", endReason: "admin" },
   { id: "s7", title: "창업 세미나 · MVP 검증하기", speaker: "이하준", status: "ended", date: "2026.09.30 16:00", audience: 73, questions: 38, code: "SU3M7", endReason: "auto" },
 ];
 
@@ -197,7 +198,7 @@ export const labelCandidates: LabelCandidate[] = [
     scores: { "v1.2": 0.72, "v1.1": 0.81, "v1.0": 0.84 },
     hits: [
       { source: "교안 p.16 · Multi-Head: h = 8, dₖ = d_model / h = 64", score: 0.72 },
-      { source: "발화 14:23 · 헤드를 나누면 서로 다른 관계를 동시에 볼 수 있어요", score: 0.64 },
+      { source: "발화 23:37 · 헤드를 나누면 서로 다른 관계를 동시에 볼 수 있어요", score: 0.64 },
       { source: "교안 p.17 · 헤드별 어텐션 시각화", score: 0.41 },
     ],
     other: { reviewer: "검수자 B", label: "forward", evidence: null },
@@ -210,21 +211,21 @@ export const labelCandidates: LabelCandidate[] = [
     base: "forward",
     scores: { "v1.2": 0.66, "v1.1": 0.42, "v1.0": 0.38 },
     hits: [
-      { source: "발화 14:26 · 자기 자신과의 유사도가 가장 높아서 대각선이 진해요", score: 0.66 },
+      { source: "발화 26:16 · 자기 자신과의 유사도가 가장 높아서 대각선이 진해요", score: 0.66 },
       { source: "교안 p.19 · 어텐션 가중치 시각화 그림", score: 0.58 },
     ],
-    other: { reviewer: "검수자 B", label: "answerable", evidence: "발화 14:26 · 자기 자신과의 유사도가 가장 높아서 대각선이 진해요" },
+    other: { reviewer: "검수자 B", label: "answerable", evidence: "발화 26:16 · 자기 자신과의 유사도가 가장 높아서 대각선이 진해요" },
   },
   {
     id: "c3",
     question: "setState가 비동기라는 게 정확히 무슨 뜻인가요?",
     lecture: "웹 프로그래밍 6주차",
-    origin: "피드백 👎",
+    origin: "철회",
     base: "answerable",
     scores: { "v1.2": 0.77, "v1.1": 0.77, "v1.0": 0.7 },
     hits: [
       { source: "교안 p.7 · setState는 바로 반영되지 않고 배치로 모아 업데이트해요", score: 0.77 },
-      { source: "발화 13:22 · 다음 렌더에서 새 값이 보여요", score: 0.69 },
+      { source: "발화 22:17 · 다음 렌더에서 새 값이 보여요", score: 0.69 },
       { source: "교안 p.8 · 함수형 업데이트 setCount(c => c + 1)", score: 0.52 },
     ],
     other: { reviewer: "검수자 B", label: "answerable", evidence: "교안 p.7 · setState는 바로 반영되지 않고 배치로 모아 업데이트해요" },
@@ -248,7 +249,7 @@ export const labelCandidates: LabelCandidate[] = [
     scores: { "v1.2": 0.63, "v1.1": 0.71, "v1.0": 0.74 },
     hits: [
       { source: "교안 p.3 · NeRF 학습 과정 개요", score: 0.63 },
-      { source: "발화 15:12 · 학습은 하루 정도 걸려요", score: 0.55 },
+      { source: "발화 12:21 · 학습은 하루 정도 걸려요", score: 0.55 },
     ],
     other: { reviewer: "검수자 B", label: "forward", evidence: null },
   },
@@ -261,9 +262,9 @@ export const labelCandidates: LabelCandidate[] = [
     scores: { "v1.2": 0.68, "v1.1": 0.47, "v1.0": 0.44 },
     hits: [
       { source: "교안 p.18 · Context 값이 바뀌면 구독 컴포넌트 전체가 리렌더돼요", score: 0.68 },
-      { source: "발화 13:41 · 값을 쪼개 Provider를 나누면 리렌더를 줄일 수 있어요", score: 0.61 },
+      { source: "발화 41:24 · 값을 쪼개 Provider를 나누면 리렌더를 줄일 수 있어요", score: 0.61 },
     ],
-    other: { reviewer: "검수자 B", label: "answerable", evidence: "발화 13:41 · 값을 쪼개 Provider를 나누면 리렌더를 줄일 수 있어요" },
+    other: { reviewer: "검수자 B", label: "answerable", evidence: "발화 41:24 · 값을 쪼개 Provider를 나누면 리렌더를 줄일 수 있어요" },
   },
 ];
 
@@ -286,7 +287,7 @@ export type ModelVersion = {
 export const modelVersions: ModelVersion[] = [
   { id: "v1.2", created: "2026.10.16", dataset: "ds-v3", auc: 0.88, wrongRate: 4.1, aiRate: 55, latency: 180 },
   { id: "v1.1", created: "2026.10.02", dataset: "ds-v2", auc: 0.86, wrongRate: 4.9, aiRate: 52, latency: 170 },
-  { id: "v1.0", created: "2026.09.20", dataset: "ds-v1", auc: 0.81, wrongRate: 7.8, aiRate: 41, latency: 165 },
+  { id: "v1.0", created: "2026.09.20", dataset: "ds-v1", auc: 0.81, wrongRate: 4.8, aiRate: 41, latency: 165 },
 ];
 
 // 재학습 결과로 새로 생기는 버전 (데모: 오답 즉답률이 목표를 넘어 배포가 막힌다)

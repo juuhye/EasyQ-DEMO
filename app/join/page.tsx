@@ -5,14 +5,16 @@ import { Suspense, useState } from "react";
 import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, PageTitle, Screen, StatusPill, TopBar, inputCls } from "@/components/ui";
-import { SESSION_CAPACITY, resolveCode, statusOf, type Lecture, type LectureStatus } from "@/lib/mock";
+import { DEMO } from "@/lib/demo";
+import { LEARN_CONSENT_TEXT, SESSION_CAPACITY, archiveHrefFor, resolveCode, statusOf, type Lecture, type LectureStatus } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 // QR → 회원 / 게스트 선택 → (로그인) 또는 (닉네임 · 동의) → 강연 상태에 따라 대기 · 질문 · 종료 화면
 // 회원은 가입 때 계정 단위로 동의했으니 바로 입장하고, 게스트만 입장할 때마다 동의를 받는다
 type Step = "code" | "who" | "guest";
 
-const NICK_MAX = 12;
+// 게스트 닉네임 1~20자
+const NICK_MAX = 20;
 
 // useSearchParams는 Suspense 안에서만 쓸 수 있다
 export default function JoinPage() {
@@ -66,12 +68,14 @@ function Join() {
     }, 1400);
   }
 
-  // 회원은 로그인한 상태면 바로, 아니면 로그인한 뒤 강연으로 돌아온다
+  // 회원은 로그인한 상태면 로그인 화면 없이 강연 상태별 화면으로 바로 간다
+  // (DRAFT → 대기 화면, LIVE → 질문 화면, ENDED → 내 보관함의 해당 강연 상세). 아니면 로그인한 뒤 돌아온다
   function enter(asGuest: boolean) {
     if (!lecture) return;
     const current = codes[lecture.id] ?? lecture.code;
     setDemo({ guestName: asGuest ? nick.trim() : null, joinedCode: current });
     if (!asGuest && !authed) return router.push(`/login?next=${encodeURIComponent(`/live/${current}`)}`);
+    if (!asGuest && statusOf(lecture, endedLectures, startedLectures) === "ended") return router.push(archiveHrefFor(lecture.id, endedLectures));
     router.push(`/live/${current}`);
   }
 
@@ -135,7 +139,7 @@ function Join() {
               </p>
             )}
           </form>
-          <p className="mt-4 text-xs leading-relaxed text-muted">예시 코드 · QX7K2 진행 중 · DB4M8 시작 전 · WB6R3 종료</p>
+          {DEMO && <p className="mt-4 text-xs leading-relaxed text-muted">예시 코드 · QX7K2 진행 중 · DB4M8 시작 전 · WB6R3 종료</p>}
         </div>
       )}
 
@@ -166,7 +170,8 @@ function Join() {
             </Sticker>
             <span className="flex-1">
               <span className="block text-lg font-bold">게스트로 입장</span>
-              <span className="text-sm text-muted">로그인 없이 닉네임으로 질문해요. 입장할 때마다 동의를 받아요</span>
+              <span className="block text-sm text-muted">로그인 없이 닉네임으로 질문해요. 입장할 때마다 동의를 받아요</span>
+              <span className="mt-0.5 block text-sm text-muted">강연이 끝나면 내 질문과 답변을 다시 볼 수 없어요</span>
             </span>
             <Icon name="right" className="text-muted" />
           </button>
@@ -190,7 +195,7 @@ function Join() {
             <input
               className={`${inputCls} mt-3`}
               value={nick}
-              onChange={(e) => setNick(e.target.value)}
+              onChange={(e) => setNick(e.target.value.slice(0, NICK_MAX))}
               placeholder="예: 질문왕"
               maxLength={NICK_MAX}
               autoFocus
@@ -210,14 +215,14 @@ function Join() {
               onClick={() => setAgree((a) => ({ ...a, keep: !a.keep }))}
               title="질문 · 답변 기록 보관"
               required
-              desc="질문과 답변은 강연이 끝난 뒤 3개월 동안 보관되고 자동으로 지워져요. 음성 원본은 저장하지 않아요."
+              desc="질문과 답변은 강연이 끝나면 지워져요. 학습 활용에 동의한 경우에만 익명 처리를 위해 강연 종료 후 90일까지 보관해요. 닉네임은 강연이 끝나면 지워지고, 음성 원본은 저장하지 않아요."
             />
             <Consent
               on={agree.learn}
               onClick={() => setAgree((a) => ({ ...a, learn: !a.learn }))}
               title="AI 개선을 위한 익명 활용"
               required={false}
-              desc="이름 · 닉네임을 뺀 질문 문장만 AI 판정 모델 개선에 쓰여요."
+              desc={LEARN_CONSENT_TEXT}
             />
           </div>
           <p className="mt-3 text-xs text-muted">필수 항목에 동의해야 입장할 수 있어요. 선택 항목은 동의하지 않아도 돼요.</p>

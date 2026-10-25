@@ -9,17 +9,16 @@ import { QrModal, QrReissue } from "@/components/QrModal";
 import { TeachingFiles } from "@/components/lecture";
 import { SourceChips } from "@/components/SourceChips";
 import { Button, Empty, Modal, RoundButton, inputCls, useToast } from "@/components/ui";
-import { type AiQuestion, findLecture, incomingQuestions, initialTranscript, liveAiQuestions, livePublicQuestions, type PublicQuestion, statusOf, toneCycle, transcriptScript } from "@/lib/mock";
+import { type AiQuestion, demoClock, findLecture, incomingQuestions, initialTranscript, liveAiQuestions, livePublicQuestions, type PublicQuestion, statusOf, toneCycle, transcriptScript } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 // 음성 인식 상태. 불안정(unstable)한 동안의 발화는 인식 누락 구간으로 남긴다
 type Stt = "connecting" | "listening" | "paused" | "unstable";
 type Line = { at: string; text: string } | { gap: { from: string; to: string } };
 
-function clock(withSec = false) {
-  const d = new Date();
-  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  return withSec ? `${hm}:${String(d.getSeconds()).padStart(2, "0")}` : hm;
+// 강연 시작 기준 경과 시간 mm:ss
+function mmss(sec: number) {
+  return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
 }
 
 const SILENCE_MS = 30_000;
@@ -55,6 +54,11 @@ export default function LiveDashboard() {
   const [lines, setLines] = useState<Line[]>(seeded ? initialTranscript : []);
   const gapFrom = useRef<string | null>(null);
   const [elapsed, setElapsed] = useState(34 * 60 + 12);
+  // 인식 텍스트 · 누락 구간에 찍을 경과 시간 (effect 안에서 최신 값을 읽는다)
+  const elapsedRef = useRef(elapsed);
+  useEffect(() => {
+    elapsedRef.current = elapsed;
+  }, [elapsed]);
   const [qrOpen, setQrOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
   const [retractId, setRetractId] = useState<string | null>(null);
@@ -91,7 +95,7 @@ export default function LiveDashboard() {
     const incoming = setInterval(() => {
       const next = incomingQuestions[incomingIdx.current++];
       if (!next) return;
-      setQs((list) => [...list.map((q) => ({ ...q, isNew: false })), { ...next, id: `in${incomingIdx.current}`, at: clock(), isNew: true }]);
+      setQs((list) => [...list.map((q) => ({ ...q, isNew: false })), { ...next, id: `in${incomingIdx.current}`, at: demoClock(), isNew: true }]);
       showToast("새 질문이 들어왔어요", "coral");
     }, 12000);
     return () => {
@@ -110,14 +114,14 @@ export default function LiveDashboard() {
   // 불안정 구간이 끝나면 인식 누락 구간으로 기록한다
   useEffect(() => {
     if (stt === "unstable") {
-      gapFrom.current = clock(true);
+      gapFrom.current = mmss(elapsedRef.current);
       const t = setTimeout(() => setStt("listening"), 5000);
       return () => clearTimeout(t);
     }
     if (gapFrom.current) {
       const from = gapFrom.current;
       gapFrom.current = null;
-      setLines((l) => [...l, { gap: { from, to: clock(true) } }]);
+      setLines((l) => [...l, { gap: { from, to: mmss(elapsedRef.current) } }]);
     }
   }, [stt]);
 
@@ -130,7 +134,7 @@ export default function LiveDashboard() {
       const text = transcriptScript[scriptIdx.current % transcriptScript.length];
       scriptIdx.current++;
       lastHeard.current = Date.now();
-      setLines((l) => [...l.slice(-30), { at: clock(), text }]);
+      setLines((l) => [...l.slice(-30), { at: mmss(elapsedRef.current), text }]);
       if (scriptIdx.current === 5) setStt("unstable");
     }, 4500);
     return () => clearInterval(t);
@@ -190,8 +194,7 @@ export default function LiveDashboard() {
   const total = qs.length + ai.length;
   const aiRate = total ? Math.round((ai.filter((a) => !a.retracted).length / total) * 100) : 0;
   const gaps = lines.flatMap((l) => ("gap" in l ? [l.gap] : []));
-  const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
-  const ss = String(elapsed % 60).padStart(2, "0");
+  const [mm, ss] = mmss(elapsed).split(":");
 
   return (
     <div className="grid-paper min-h-dvh bg-paper">

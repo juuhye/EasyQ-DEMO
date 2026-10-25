@@ -7,7 +7,7 @@ import { Icon } from "@/components/Icon";
 import { EndReasonPill, TeachingFiles } from "@/components/lecture";
 import { SummaryNote } from "@/components/SummaryNote";
 import { Button, Empty, Modal, RoundButton, Screen, StatusPill, Tabs, TopBar, useToast } from "@/components/ui";
-import { archive, findLecture, logStats, pageHistogram, questionLogs, transformerNote } from "@/lib/mock";
+import { archive, findLecture, reactStateNote, tcpNote, logStats, pageHistogram, questionLogs, transformerNote } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 export default function Report() {
@@ -45,7 +45,7 @@ export default function Report() {
   const stats = logStats(log);
   const endReason = endReasons[lecture.id] ?? lecture.endReason ?? "manual";
   const histogram = pageHistogram(log, lecture.file?.pages ?? 30);
-  const note = lecture.id === "l1" ? transformerNote : lecture.id === "l3" ? { ...archive[3].note!, headline: "React 상태를 어디에 둘지 고르는 기준: 지역 상태, 리듀서, Context" } : archive[1].note!;
+  const note = lecture.id === "l1" ? transformerNote : lecture.id === "l3" ? reactStateNote : lecture.id === "l6" ? tcpNote : archive[1].note!;
   const aiRate = stats.questions ? Math.round((stats.ai / stats.questions) * 100) : 0;
   const maxBar = Math.max(1, ...histogram.map((p) => p.count));
 
@@ -113,10 +113,10 @@ export default function Report() {
               </div>
               <div className="mt-2 flex justify-between text-xs text-muted">
                 <span>
-                  <b className="text-mint">●</b> AI 답변 {stats.ai}개 (철회 {stats.retracted})
+                  <b className="text-mint">●</b> AI 답변 {stats.ai}개
                 </span>
                 <span>
-                  <b className="text-coral">●</b> 강연자 {stats.forwarded}개
+                  <b className="text-coral">●</b> 강연자 {stats.forwarded}개{stats.retracted > 0 && ` (철회 ${stats.retracted} 포함)`}
                 </span>
               </div>
             </div>
