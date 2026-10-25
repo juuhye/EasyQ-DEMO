@@ -139,7 +139,7 @@ function Join() {
               </p>
             )}
           </form>
-          {DEMO && <p className="mt-4 text-xs leading-relaxed text-muted">예시 코드 · QX7K2 진행 중 · DB4M8 시작 전 · WB6R3 종료</p>}
+          {DEMO && <p className="mt-4 text-xs leading-relaxed text-muted">예시 코드 · QX7K2 진행 중 · DB4M8 시작 전 · SU3M7 종료</p>}
         </div>
       )}
 

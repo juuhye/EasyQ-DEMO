@@ -140,9 +140,28 @@ export function demoClock() {
 export const SESSION_CAPACITY = 300;
 
 // 입장 코드로 강연을 찾는다. 재발급된 강연의 이전 코드는 expired로 돌려준다
+// 다른 회원의 강연. 내 강의 목록에는 없고 청중 입장 코드로만 찾는다 (종료 예시 코드 SU3M7)
+export const otherLectures: Lecture[] = [
+  {
+    id: "s7",
+    title: "창업 세미나 · MVP 검증하기",
+    date: "2026.09.30 (수)",
+    time: "16:00",
+    desc: "인터뷰와 랜딩 페이지로 가설 검증하기",
+    status: "ended",
+    code: "SU3M7",
+    tone: "leaf",
+    emoji: "🚀",
+    file: { name: "mvp_validation.pdf", pages: 26, chunks: 104, state: "done" },
+    audience: 73,
+    glossary: [],
+    endReason: "auto",
+  },
+];
+
 export function resolveCode(code: string, codes: Record<string, string>) {
   const c = code.trim().toUpperCase();
-  const lecture = lectures.find((l) => (codes[l.id] ?? l.code) === c);
+  const lecture = [...lectures, ...otherLectures].find((l) => (codes[l.id] ?? l.code) === c);
   if (lecture) return { lecture, expired: false };
   const old = lectures.find((l) => codes[l.id] && l.code === c);
   return { lecture: old, expired: !!old };
@@ -311,18 +330,15 @@ export const cannedAnswers: { keys: string[]; answer: string; sources: Source[] 
   },
 ];
 
-// 웹 프로그래밍 6주차(l3) 요약 노트: 리포트와 보관함에서 같이 쓴다
-function reactStateNoteData() {
-  return {
-    headline: "React 상태를 어디에 둘지 고르는 기준: 지역 상태, 리듀서, Context",
-    sections: [
-      { title: "핵심 개념", points: ["지역 상태는 useState로 두고, 여러 컴포넌트가 쓰면 가까운 부모로 끌어올린다", "상태 변경 로직이 복잡하면 useReducer로 액션별 처리를 한곳에 모은다 (교안 p.12)", "Context 값이 바뀌면 구독하는 컴포넌트가 모두 리렌더된다 (교안 p.18)"] },
-      { title: "강연에서 강조한 점", points: ["setState는 바로 반영되지 않고 배치로 업데이트된다", "자주 바뀌는 값과 드물게 바뀌는 값은 Context를 나눠 담는다", "상태는 불변으로 다뤄야 변경을 감지할 수 있다"] },
-    ],
-    keywords: ["useState", "useReducer", "Context"],
-  };
-}
-export const reactStateNote = reactStateNoteData();
+// 웹 프로그래밍 6주차(l3) 리포트 요약 노트
+export const reactStateNote = {
+  headline: "React 상태를 어디에 둘지 고르는 기준: 지역 상태, 리듀서, Context",
+  sections: [
+    { title: "핵심 개념", points: ["지역 상태는 useState로 두고, 여러 컴포넌트가 쓰면 가까운 부모로 끌어올린다", "상태 변경 로직이 복잡하면 useReducer로 액션별 처리를 한곳에 모은다 (교안 p.12)", "Context 값이 바뀌면 구독하는 컴포넌트가 모두 리렌더된다 (교안 p.18)"] },
+    { title: "강연에서 강조한 점", points: ["setState는 바로 반영되지 않고 배치로 업데이트된다", "자주 바뀌는 값과 드물게 바뀌는 값은 Context를 나눠 담는다", "상태는 불변으로 다뤄야 변경을 감지할 수 있다"] },
+  ],
+  keywords: ["useState", "useReducer", "Context"],
+};
 
 // ── 청중: 내 보관함 ───────────────────────────────
 
@@ -343,27 +359,6 @@ export type ArchiveItem = {
 };
 
 export const archive: ArchiveItem[] = [
-  {
-    // 종료 강연 WB6R3(l3)에 청중으로 참여한 기록
-    id: "r7",
-    lectureId: "l3",
-    title: "웹 프로그래밍 6주차 · React 상태 관리",
-    speaker: "주혜",
-    date: "2026.10.08",
-    tone: "grape",
-    emoji: "⚛️",
-    summary: "ready",
-    note: reactStateNoteData(),
-    myQuestions: [
-      { id: "m9", text: "useReducer는 언제 useState 대신 쓰나요?", kind: "ai", answer: "다음 상태가 이전 상태와 액션 종류에 따라 여러 갈래로 바뀌면 useReducer가 좋아요. 변경 로직을 리듀서 한곳에 모을 수 있어요.", sources: [{ kind: "slide", label: "교안 p.12", quote: "useReducer(reducer, initialState)" }, { kind: "speech", label: "발화 18:24", quote: "상태 바뀌는 경우가 세 가지 넘어가면 리듀서로 빼세요." }] },
-      { id: "m10", text: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", kind: "forwarded", status: "done" },
-    ],
-    questions: [
-      { id: "m10", text: "Context를 쓰면 리렌더가 너무 많이 일어나지 않나요?", likes: 27, status: "done", liked: true, memo: "값을 쪼개서 Provider를 나누면 리렌더가 줄어듦" },
-      { id: "k13", text: "상태 관리 라이브러리는 실무에서 뭘 많이 쓰나요?", likes: 21, status: "done", liked: false },
-      { id: "k14", text: "과제에서 Redux를 써도 감점 없나요?", likes: 15, status: "done", liked: true },
-    ],
-  },
   {
     id: "r1",
     title: "컴퓨터 비전 특강 · Diffusion 모델",
@@ -421,6 +416,7 @@ export const archive: ArchiveItem[] = [
   },
   {
     id: "r3",
+    lectureId: "s7",
     title: "창업 세미나 · MVP 검증하기",
     speaker: "이하준 대표",
     date: "2026.09.30",
