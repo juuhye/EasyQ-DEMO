@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Logo } from "./Brand";
 import { Icon, type IconName } from "./Icon";
+import { LLM_ONLY } from "@/lib/admin";
 import { restoreAdmin, setAdmin, useDemo } from "@/lib/store";
 
 // ── 관리자 화면 틀 ────────────────────────────────
@@ -12,7 +13,7 @@ import { restoreAdmin, setAdmin, useDemo } from "@/lib/store";
 const adminNav: { href: string; label: string; icon: IconName }[] = [
   { href: "/admin", label: "운영 지표", icon: "gauge" },
   { href: "/admin/members", label: "회원", icon: "users" },
-  { href: "/admin/sessions", label: "세션", icon: "board" },
+  { href: "/admin/sessions", label: "강연", icon: "board" },
   { href: "/admin/data", label: "데이터 · 라벨", icon: "layers" },
   { href: "/admin/models", label: "모델", icon: "cpu" },
   { href: "/admin/notices", label: "공지 · 문의", icon: "megaphone" },
@@ -56,7 +57,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto space-y-3">
           <div className="rounded-[20px] bg-white p-3.5 text-xs">
             <p className="text-muted">현재 서빙 모델</p>
-            <p className="mt-0.5 text-[15px] font-bold">{servingVersion === "sonnet" ? "Sonnet 단독 판정" : `판정 모델 ${servingVersion}`}</p>
+            <p className="mt-0.5 text-[15px] font-bold">{servingVersion === LLM_ONLY ? "LLM_ONLY" : `판정 모델 ${servingVersion}`}</p>
           </div>
           <button
             onClick={() => {

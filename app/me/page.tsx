@@ -5,16 +5,19 @@ import { useState } from "react";
 import { Avatar, Sticker } from "@/components/Brand";
 import { Icon, type IconName } from "@/components/Icon";
 import { Button, Field, Modal, Screen, inputCls, useToast } from "@/components/ui";
-import { MOCK_PASSWORD } from "@/lib/auth";
-import { archiveWith, inquiries, lectures, me, notices } from "@/lib/mock";
+import { MOCK_PASSWORD, pwValid } from "@/lib/auth";
+import { archiveWith, inquiries, lectures, me, notices, statusOf } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
-type Sheet = null | "name" | "pw" | "consent" | "notice" | "inquiry" | "leave";
+type Sheet = null | "name" | "pw" | "consent" | "notice" | "inquiry" | "reauth" | "leave";
+
+// 탈퇴는 최근 10분 안에 로그인한 상태에서만 할 수 있다
+const REAUTH_MS = 10 * 60 * 1000;
 
 export default function Me() {
   const router = useRouter();
   const toast = useToast();
-  const { name, consent, endedLectures, deletedArchives, deletedLectures } = useDemo();
+  const { name, consent, loginAt, signup, endedLectures, startedLectures, deletedArchives, deletedLectures } = useDemo();
   const myArchive = archiveWith(endedLectures).filter((a) => !deletedArchives.includes(a.id));
   const [sheet, setSheet] = useState<Sheet>(null);
   const [draftName, setDraftName] = useState(name);
@@ -22,12 +25,14 @@ export default function Me() {
   const [pwError, setPwError] = useState("");
   const [openNotice, setOpenNotice] = useState<string | null>(null);
   const [inq, setInq] = useState({ title: "", body: "" });
-  const hasLive = lectures.some((l) => l.status === "live");
+  const [reauthPw, setReauthPw] = useState("");
+  const [reauthError, setReauthError] = useState("");
+  const hasLive = lectures.some((l) => statusOf(l, endedLectures, startedLectures) === "live");
 
   const menu: { icon: IconName; label: string; sheet: Sheet; badge?: string }[] = [
     { icon: "pen", label: "표시명 변경", sheet: "name" },
     { icon: "lock", label: "비밀번호 변경", sheet: "pw" },
-    { icon: "shield", label: "데이터 활용 동의", sheet: "consent" },
+    { icon: "shield", label: "학습 활용 동의", sheet: "consent" },
     { icon: "megaphone", label: "공지사항", sheet: "notice", badge: "N" },
     { icon: "chat", label: "1:1 문의", sheet: "inquiry" },
   ];
@@ -49,9 +54,9 @@ export default function Me() {
       <div className="px-5">
         <div className="mt-6 grid grid-cols-3 rounded-[24px] bg-white py-4 text-center">
           {[
-            [myArchive.length, "참여 강의"],
+            [myArchive.length, "참여 강연"],
             [myArchive.reduce((s, a) => s + a.myQuestions.length, 0), "내 질문"],
-            [lectures.filter((l) => !deletedLectures.includes(l.id)).length, "만든 강의"],
+            [lectures.filter((l) => !deletedLectures.includes(l.id)).length, "만든 강연"],
           ].map(([n, l]) => (
             <div key={l}>
               <p className="text-[26px] font-extrabold tracking-[-0.04em]">{n}</p>
@@ -69,12 +74,18 @@ export default function Me() {
               <Icon name="right" size={16} className="text-muted" />
             </button>
           ))}
-          <button onClick={() => router.push("/")} className="flex w-full items-center gap-3 rounded-[20px] bg-white px-4 py-4 text-left">
+          <button
+            onClick={() => {
+              setDemo({ authed: false, loginAt: 0 });
+              router.push("/");
+            }}
+            className="flex w-full items-center gap-3 rounded-[20px] bg-white px-4 py-4 text-left"
+          >
             <Icon name="logout" size={19} className="text-muted" />
             <span className="flex-1">로그아웃</span>
           </button>
         </div>
-        <button onClick={() => setSheet("leave")} className="mx-auto mb-6 mt-6 block text-sm text-muted underline underline-offset-4">
+        <button onClick={() => setSheet(Date.now() - loginAt < REAUTH_MS ? "leave" : "reauth")} className="mx-auto mb-6 mt-6 block text-sm text-muted underline underline-offset-4">
           회원 탈퇴
         </button>
       </div>
@@ -95,8 +106,8 @@ export default function Me() {
         </Button>
       </Modal>
 
-      {/* 데이터 활용 동의 (API-48) · 계정 단위로 저장돼 다음 입장부터 적용 */}
-      <Modal open={sheet === "consent"} onClose={() => setSheet(null)} title="데이터 활용 동의">
+      {/* 학습 활용 동의 (API-48) · 계정 단위로 저장돼 다음 입장부터 적용 */}
+      <Modal open={sheet === "consent"} onClose={() => setSheet(null)} title="학습 활용 동의">
         <div className="space-y-2">
           <div className="flex gap-3 rounded-[20px] bg-white p-4">
             <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-white">
@@ -129,7 +140,10 @@ export default function Me() {
             </span>
           </button>
         </div>
-        <p className="mt-3 text-xs leading-relaxed text-muted">바꾼 내용은 다음 질문부터 적용돼요. 이미 학습에 쓰인 익명 데이터는 되돌리지 않아요.</p>
+        <p className="mt-3 flex items-start gap-1.5 rounded-2xl bg-honey/30 px-3 py-2.5 text-xs leading-relaxed">
+          <Icon name="alert" size={14} className="mt-px shrink-0" />
+          동의를 철회해도 이미 학습에 반영된 익명 데이터는 남아요. 철회한 뒤의 질문부터 학습에 쓰지 않아요.
+        </p>
       </Modal>
 
       {/* 비밀번호 */}
@@ -146,7 +160,7 @@ export default function Me() {
           className="mt-4 w-full"
           onClick={() => {
             if (pw.cur !== MOCK_PASSWORD) return setPwError("현재 비밀번호가 맞지 않아요.");
-            if (!(pw.next.length >= 8 && /[a-zA-Z]/.test(pw.next) && /\d/.test(pw.next))) return setPwError("새 비밀번호 규칙을 확인해 주세요.");
+            if (!pwValid(pw.next)) return setPwError("새 비밀번호 규칙을 확인해 주세요.");
             setPwError("");
             setPw({ cur: "", next: "" });
             setSheet(null);
@@ -205,6 +219,41 @@ export default function Me() {
         </Button>
       </Modal>
 
+      {/* 탈퇴 전 재로그인: 마지막 로그인이 10분보다 오래됐으면 비밀번호를 다시 확인한다 */}
+      <Modal
+        open={sheet === "reauth"}
+        onClose={() => {
+          setSheet(null);
+          setReauthPw("");
+          setReauthError("");
+        }}
+        title="다시 로그인해 주세요"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (reauthPw !== (signup?.verified ? signup.pw : MOCK_PASSWORD)) return setReauthError("비밀번호가 맞지 않아요.");
+            setDemo({ authed: true, loginAt: Date.now() });
+            setReauthPw("");
+            setReauthError("");
+            setSheet("leave");
+          }}
+        >
+          <p className="text-sm leading-relaxed text-muted">탈퇴는 최근 10분 안에 로그인한 상태에서만 할 수 있어요. 본인 확인을 위해 비밀번호를 입력해 주세요.</p>
+          <div className="mt-4 space-y-3">
+            <Field label="이메일">
+              <input className={`${inputCls} text-muted`} value={signup?.verified ? signup.email : me.email} readOnly />
+            </Field>
+            <Field label="비밀번호" error={reauthError}>
+              <input type="password" className={inputCls} value={reauthPw} onChange={(e) => setReauthPw(e.target.value)} autoFocus />
+            </Field>
+          </div>
+          <Button type="submit" className="mt-5 w-full" disabled={!reauthPw}>
+            로그인하고 계속
+          </Button>
+        </form>
+      </Modal>
+
       {/* 탈퇴 */}
       <Modal open={sheet === "leave"} onClose={() => setSheet(null)}>
         <div className="flex flex-col items-center text-center">
@@ -212,11 +261,11 @@ export default function Me() {
             🥲
           </Sticker>
           <p className="mt-4 text-[22px] font-extrabold tracking-[-0.04em]">정말 떠나시나요?</p>
-          <p className="mt-2 text-sm leading-relaxed text-muted">탈퇴하면 내 질문, 답변, 요약 노트가 모두 지워지고 되돌릴 수 없어요.</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted">탈퇴하면 내 질문 · 답변 · 요약 노트와 내가 만든 강연 데이터가 모두 지워지고 되돌릴 수 없어요.</p>
           {hasLive && (
             <p className="mt-3 flex items-center gap-1.5 rounded-2xl bg-coral/20 px-3 py-2.5 text-left text-sm">
               <Icon name="alert" size={16} className="shrink-0" />
-              진행 중인 강의가 있어요. 강의를 먼저 종료해야 탈퇴할 수 있어요.
+              진행 중인 강연이 있어요. 강연을 먼저 종료해야 탈퇴할 수 있어요.
             </p>
           )}
         </div>
@@ -224,7 +273,15 @@ export default function Me() {
           <Button variant="soft" className="flex-1" onClick={() => setSheet(null)}>
             더 써볼게요
           </Button>
-          <Button variant="danger" className="flex-1" disabled={hasLive} onClick={() => router.push("/")}>
+          <Button
+            variant="danger"
+            className="flex-1"
+            disabled={hasLive}
+            onClick={() => {
+              setDemo({ authed: false, loginAt: 0 });
+              router.push("/");
+            }}
+          >
             탈퇴하기
           </Button>
         </div>

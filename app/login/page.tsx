@@ -1,37 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { Sticker } from "@/components/Brand";
-import { Button, Field, Screen, TopBar, inputCls, useToast } from "@/components/ui";
+import { Button, Field, Screen, TopBar, inputCls } from "@/components/ui";
 import { login, type LoginField } from "@/lib/auth";
-import { setDemo } from "@/lib/store";
+import { setDemo, useDemo } from "@/lib/store";
 
-export default function Login() {
+// useSearchParams는 Suspense 안에서만 쓸 수 있다
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <Login />
+    </Suspense>
+  );
+}
+
+function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState("juhye@gachon.ac.kr");
+  const { signup } = useDemo();
+  // QR 입장 중 회원을 고르면 로그인 뒤 그 강연으로 돌아간다. 내부 경로만 받는다
+  const nextParam = useSearchParams().get("next");
+  const next = nextParam?.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/home";
+  const [email, setEmail] = useState(signup?.email ?? "juhye@gachon.ac.kr");
   const [pw, setPw] = useState("");
-  const [error, setError] = useState<{ field: LoginField; message: string; unverified?: boolean } | null>(null);
+  const [error, setError] = useState<{ field: LoginField; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
-  const toast = useToast();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
-    const res = await login(email, pw, "user").catch(() => ({ ok: false as const, field: "form" as const, message: "잠시 후 다시 시도해 주세요." }));
+    const res = await login(email, pw, "user", signup).catch(() => ({ ok: false as const, field: "form" as const, message: "잠시 후 다시 시도해 주세요." }));
     setLoading(false);
+    // 인증 전 계정은 코드 입력 화면으로 보낸다
+    if (!res.ok && "unverified" in res && res.unverified) return router.push(`/verify?email=${encodeURIComponent(email.trim())}`);
     if (!res.ok) return setError(res);
     setError(null);
-    setDemo({ name: res.name });
-    router.push("/home");
+    setDemo({ name: res.name, authed: true, loginAt: Date.now() });
+    router.push(next);
   }
 
   return (
     <Screen width="narrow">
-      {toast.node}
-      <TopBar back="/" />
+      <TopBar back={true} />
       <form onSubmit={submit} className="flex flex-1 flex-col px-6">
         <div className="pt-4">
           <Sticker size={44} rotate={-10}>👋</Sticker>
@@ -50,15 +63,13 @@ export default function Login() {
           <Field label="비밀번호" error={error?.field === "pw" ? error.message : undefined}>
             <input className={inputCls} type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호" autoFocus />
           </Field>
+          <Link href="/password/forgot" className="block text-right text-sm font-semibold text-ink/60 underline underline-offset-4">
+            비밀번호를 잊었어요
+          </Link>
         </div>
         {error?.field === "form" && (
           <div role="alert" className="mt-4 rounded-2xl bg-coral/15 p-3.5 text-sm text-coral-ink">
             {error.message}
-            {error.unverified && (
-              <button type="button" onClick={() => toast.show("인증 메일을 다시 보냈어요")} className="ml-1 font-semibold underline underline-offset-4">
-                인증 메일 다시 보내기
-              </button>
-            )}
           </div>
         )}
 

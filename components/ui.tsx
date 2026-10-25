@@ -88,7 +88,7 @@ const navItems: { href: string; label: string; icon: IconName }[] = [
   { href: "/home", label: "홈", icon: "home" },
   { href: "/archive", label: "보관함", icon: "box" },
   { href: "/join", label: "입장", icon: "qr" },
-  { href: "/lectures", label: "내 강의", icon: "board" },
+  { href: "/lectures", label: "내 강연", icon: "board" },
 ];
 
 // 시안의 떠 있는 알약 내비게이션 + 프로필 동그라미

@@ -73,10 +73,10 @@ export function Bubble({
 }
 
 // 시안의 폴더 카드 — 안에 종이(스티커)가 꽂혀 있다
-export function Folder({ tone, title, sub, stickers, corner }: { tone: Tone; title: string; sub: string; stickers: string[]; corner?: React.ReactNode }) {
+export function Folder({ tone, title, sub, stickers, corner }: { tone: Tone; title: string; sub: React.ReactNode; stickers: string[]; corner?: React.ReactNode }) {
   const hex = tones[tone].hex;
   return (
-    <div className="relative h-[156px]">
+    <div className="relative h-[176px]">
       {/* 뒷판 + 탭 */}
       <div className="absolute inset-x-0 bottom-0 top-5 rounded-[18px] brightness-[0.88]" style={{ backgroundColor: hex }} />
       <div className="absolute left-0 top-2 h-6 w-[46%] rounded-t-[14px] brightness-[0.88]" style={{ backgroundColor: hex }} />
@@ -93,9 +93,9 @@ export function Folder({ tone, title, sub, stickers, corner }: { tone: Tone; tit
         ))}
       </div>
       {/* 앞판 */}
-      <div className="absolute inset-x-0 bottom-0 flex h-[62%] flex-col justify-end rounded-[18px] p-3.5 shadow-[0_-2px_0_rgba(255,255,255,0.25)_inset]" style={{ backgroundColor: hex }}>
+      <div className="absolute inset-x-0 bottom-0 flex h-[66%] flex-col justify-end rounded-[18px] p-3.5 shadow-[0_-2px_0_rgba(255,255,255,0.25)_inset]" style={{ backgroundColor: hex }}>
         <p className="line-clamp-2 pr-7 text-[15px] font-bold leading-tight tracking-[-0.03em]">{title}</p>
-        <p className="mt-0.5 text-xs text-ink/60">{sub}</p>
+        <div className="mt-0.5 pr-7 text-xs text-ink/60">{sub}</div>
         {corner && <span className="absolute bottom-3 right-3">{corner}</span>}
       </div>
     </div>

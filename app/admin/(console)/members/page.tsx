@@ -7,7 +7,7 @@ import { Icon } from "@/components/Icon";
 import { Button, Empty, Field, Modal, Pill, Tabs, inputCls, useToast } from "@/components/ui";
 import { members as initialMembers, suspendReasons, type Member, type MemberStatus } from "@/lib/admin";
 
-const statusLabel: Record<MemberStatus, string> = { active: "정상", suspended: "정지", unverified: "미인증" };
+const statusLabel: Record<MemberStatus, string> = { active: "정상", suspended: "정지", unverified: "인증 대기" };
 const statusDot: Record<MemberStatus, string> = { active: "bg-mint", suspended: "bg-coral", unverified: "bg-honey" };
 
 export default function AdminMembers() {
@@ -17,6 +17,9 @@ export default function AdminMembers() {
   const [target, setTarget] = useState<Member | null>(null);
   const [reason, setReason] = useState(suspendReasons[0]);
   const [detail, setDetail] = useState("");
+  // 정지 복구도 사유를 남긴다
+  const [restoring, setRestoring] = useState<Member | null>(null);
+  const [restoreReason, setRestoreReason] = useState("");
   const toast = useToast();
 
   const query = q.trim().toLowerCase();
@@ -35,10 +38,18 @@ export default function AdminMembers() {
     setDetail("");
   }
 
+  function restore() {
+    if (!restoring || !restoreReason.trim()) return;
+    update(restoring.id, { status: "active", suspendReason: undefined });
+    toast.show(`${restoring.name} 님을 복구했어요. 바로 로그인할 수 있어요.`, "mint");
+    setRestoring(null);
+    setRestoreReason("");
+  }
+
   return (
     <>
       {toast.node}
-      <AdminTitle desc="회원을 찾아 정지 · 해제해요">회원 관리</AdminTitle>
+      <AdminTitle desc="회원을 찾아 정지 · 복구해요. 둘 다 사유를 남겨요">회원 관리</AdminTitle>
 
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
         <div className="relative md:w-80">
@@ -52,7 +63,7 @@ export default function AdminMembers() {
             { value: "all", label: "전체", count: list.length },
             { value: "active", label: "정상", count: count("active") },
             { value: "suspended", label: "정지", count: count("suspended") },
-            { value: "unverified", label: "미인증", count: count("unverified") },
+            { value: "unverified", label: "인증 대기", count: count("unverified") },
           ]}
         />
       </div>
@@ -67,7 +78,7 @@ export default function AdminMembers() {
                 <tr className="border-b border-line">
                   <th className="pb-2 font-medium">회원</th>
                   <th className="pb-2 font-medium">가입일</th>
-                  <th className="pb-2 text-right font-medium">만든 강의</th>
+                  <th className="pb-2 text-right font-medium">만든 강연</th>
                   <th className="pb-2 text-right font-medium">질문</th>
                   <th className="pb-2 pl-4 font-medium">상태</th>
                   <th className="pb-2" />
@@ -94,18 +105,12 @@ export default function AdminMembers() {
                         {statusLabel[m.status]}
                       </Pill>
                       {m.suspendReason && m.status === "suspended" && <p className="mt-1 max-w-56 text-xs text-muted">{m.suspendReason}</p>}
+                      {m.status === "unverified" && <p className="mt-1 text-xs text-muted">이메일 인증 코드를 아직 입력하지 않았어요</p>}
                     </td>
                     <td className="py-3 text-right">
                       {m.status === "suspended" ? (
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          onClick={() => {
-                            update(m.id, { status: "active", suspendReason: undefined });
-                            toast.show(`${m.name} 님의 정지를 풀었어요.`, "mint");
-                          }}
-                        >
-                          정지 해제
+                        <Button size="sm" variant="soft" onClick={() => setRestoring(m)}>
+                          복구
                         </Button>
                       ) : (
                         <Button size="sm" variant="ghost" onClick={() => setTarget(m)}>
@@ -122,7 +127,7 @@ export default function AdminMembers() {
       </Panel>
 
       <Modal open={!!target} onClose={() => setTarget(null)} title={`${target?.name} 님을 정지할까요?`}>
-        <p className="text-sm leading-relaxed text-muted">정지된 회원은 로그인할 수 없고, 진행 중인 강의는 그대로 유지돼요. 사유는 회원에게 안내돼요.</p>
+        <p className="text-sm leading-relaxed text-muted">정지된 회원은 로그인할 수 없고, 진행 중인 강연은 그대로 유지돼요. 사유는 회원에게 안내돼요.</p>
         <div className="mt-5 space-y-4">
           <Field label="정지 사유">
             <div className="flex flex-wrap gap-1.5">
@@ -148,6 +153,23 @@ export default function AdminMembers() {
           </Button>
           <Button variant="danger" className="flex-1" onClick={suspend}>
             정지하기
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={!!restoring} onClose={() => setRestoring(null)} title={`${restoring?.name} 님을 복구할까요?`}>
+        {restoring?.suspendReason && <p className="rounded-2xl bg-white p-3.5 text-sm text-muted">정지 사유: {restoring.suspendReason}</p>}
+        <div className="mt-4">
+          <Field label="복구 사유">
+            <textarea className={`${inputCls} h-24 resize-none`} value={restoreReason} onChange={(e) => setRestoreReason(e.target.value)} placeholder="예: 소명 확인, 오인 정지" autoFocus />
+          </Field>
+        </div>
+        <div className="mt-6 flex gap-2">
+          <Button variant="soft" className="flex-1" onClick={() => setRestoring(null)}>
+            취소
+          </Button>
+          <Button className="flex-1" disabled={!restoreReason.trim()} onClick={restore}>
+            복구하기
           </Button>
         </div>
       </Modal>

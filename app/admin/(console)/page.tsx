@@ -4,9 +4,11 @@ import { useState } from "react";
 import { AdminTitle, Dot, Panel, Stat } from "@/components/admin";
 import { Icon } from "@/components/Icon";
 import { Progress, Tabs } from "@/components/ui";
-import { costBudget, dailyMetrics, opsMetrics, sessionMetrics, type Period } from "@/lib/admin";
+import { costBudget, dailyMetrics, latencyTarget, opsMetrics, sessionMetrics, type Period } from "@/lib/admin";
 
 const won = (n: number) => `${n.toLocaleString()}원`;
+// 표본이 없는 응답 시간은 "–"
+const sec = (n: number | null) => (n === null ? "–" : `${n}s`);
 
 export default function AdminDashboard() {
   const [period, setPeriod] = useState<Period>("week");
@@ -19,7 +21,7 @@ export default function AdminDashboard() {
   return (
     <>
       <AdminTitle
-        desc="처리 로그(F4-7)를 세션 · 일 단위로 모았어요"
+        desc="처리 로그(F4-7)를 강연 · 일 단위로 모았어요"
         action={
           <Tabs
             value={period}
@@ -49,10 +51,9 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat label="AI 처리율" value={`${m.aiRate}%`} sub={`질문 ${m.questions.toLocaleString()}건 중 · 목표 50% 이상`} tone="#3dbf6e" />
         <Stat label="강연자 이관 비율" value={`${m.forwardRate}%`} sub={`${Math.round((m.questions * m.forwardRate) / 100).toLocaleString()}건 이관`} tone="#f4625a" />
-        <Stat label="응답 시간 p50 / p95" value={`${m.p50}s`} sub={`p95 ${m.p95}초 · 목표 3초 / 6초 이내`} warn={m.p95 > 6} />
         <Stat
           label="API 비용"
           value={won(m.cost)}
@@ -60,6 +61,13 @@ export default function AdminDashboard() {
           warn={perLecture > costBudget.perLectureTarget}
           tone="#ffc830"
         />
+      </div>
+
+      {/* 응답 시간 3종 (p50). 오답 즉답률 · 정확도는 모델 화면의 평가 결과에만 둔다 */}
+      <div className="mt-3 grid grid-cols-3 gap-3">
+        <Stat label="진행 상태 표시" value={sec(m.latency.status)} sub="질문 제출 → 첫 진행 상태" />
+        <Stat label="첫 글자" value={sec(m.latency.first)} sub="AI 답변 첫 글자까지" />
+        <Stat label="최종 확정" value={sec(m.latency.final)} sub={`답변 확정 · 전달까지 · 목표 ${latencyTarget.final}초`} warn={m.latency.final !== null && m.latency.final > latencyTarget.final} />
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-[1.4fr_1fr]">
@@ -110,15 +118,17 @@ export default function AdminDashboard() {
         </Panel>
       </div>
 
-      <Panel title="세션별 지표" desc="AI 처리율이 낮거나 응답이 느린 세션을 먼저 확인하세요" className="mt-3">
+      <Panel title="강연별 지표" desc="응답 시간은 p50 · 표본이 없으면 – 로 표시해요" className="mt-3">
         <div className="-mx-5 overflow-x-auto px-5">
-          <table className="w-full min-w-[560px] text-left text-sm">
+          <table className="w-full min-w-[680px] text-left text-sm">
             <thead className="text-xs text-muted">
               <tr className="border-b border-line">
-                <th className="pb-2 font-medium">세션</th>
+                <th className="pb-2 font-medium">강연</th>
                 <th className="pb-2 text-right font-medium">질문</th>
                 <th className="pb-2 pl-4 font-medium">AI 처리율</th>
-                <th className="pb-2 text-right font-medium">p50</th>
+                <th className="pb-2 text-right font-medium">진행 상태</th>
+                <th className="pb-2 text-right font-medium">첫 글자</th>
+                <th className="pb-2 text-right font-medium">최종 확정</th>
                 <th className="pb-2 text-right font-medium">비용</th>
               </tr>
             </thead>
@@ -133,7 +143,9 @@ export default function AdminDashboard() {
                       <span className={`w-9 text-right text-xs font-semibold ${s.aiRate < 50 ? "text-coral-ink" : ""}`}>{s.aiRate}%</span>
                     </div>
                   </td>
-                  <td className={`py-3 text-right ${s.p50 > 3 ? "font-semibold text-coral-ink" : ""}`}>{s.p50}s</td>
+                  <td className="py-3 text-right">{sec(s.latency.status)}</td>
+                  <td className={`py-3 text-right ${s.latency.first === null ? "text-muted" : ""}`}>{sec(s.latency.first)}</td>
+                  <td className={`py-3 text-right ${s.latency.final !== null && s.latency.final > latencyTarget.final ? "font-semibold text-coral-ink" : ""}`}>{sec(s.latency.final)}</td>
                   <td className={`py-3 text-right ${s.cost > costBudget.perLectureTarget ? "font-semibold text-coral-ink" : ""}`}>{won(s.cost)}</td>
                 </tr>
               ))}

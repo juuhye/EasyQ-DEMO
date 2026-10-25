@@ -4,10 +4,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Avatar, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
+import { NoteModal } from "@/components/NoteModal";
 import { SummaryNote } from "@/components/SummaryNote";
 import { SourceChips } from "@/components/SourceChips";
 import { Button, Empty, Modal, RoundButton, Screen, Tabs, TopBar, useToast } from "@/components/ui";
-import { archiveWith } from "@/lib/mock";
+import { ORIGINAL_KEEP_DAYS, archiveWith, daysSince } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 export default function ArchiveDetail() {
@@ -19,6 +20,7 @@ export default function ArchiveDetail() {
   const [tab, setTab] = useState<"note" | "mine" | "all">("note");
   const [questions, setQuestions] = useState(item?.myQuestions ?? []);
   const [summary, setSummary] = useState(item?.summary ?? "none");
+  const [noteFor, setNoteFor] = useState<{ id: string; text: string } | null>(null);
 
   // 생성 중인 요약 노트는 완성되면 바로 보여준다
   useEffect(() => {
@@ -36,7 +38,10 @@ export default function ArchiveDetail() {
       </Screen>
     );
 
-  
+  // 강연 후 90일이 지나면 근거 원문 대신 위치와 인용 구절만 보여준다
+  const originalExpired = daysSince(item.date) > ORIGINAL_KEEP_DAYS;
+  const noteOf = (q: (typeof item.questions)[number]) => memos[q.id] ?? q.memo ?? "";
+
   function doDelete() {
     if (!confirm) return;
     if (confirm.kind === "one") {
@@ -52,7 +57,7 @@ export default function ArchiveDetail() {
   return (
     <Screen>
       {toast.node}
-      <TopBar back="/archive" right={<RoundButton icon="trash" label="강의 기록 삭제" onClick={() => setConfirm({ kind: "all" })} />} />
+      <TopBar back="/archive" right={<RoundButton icon="trash" label="강연 기록 삭제" onClick={() => setConfirm({ kind: "all" })} />} />
       <div className="px-5">
         <div className="flex items-start justify-between gap-3 pt-2">
           <h1 className="text-[32px] font-extrabold leading-[1.08] tracking-[-0.05em]">{item.title}</h1>
@@ -64,6 +69,12 @@ export default function ArchiveDetail() {
           <Avatar name={item.speaker} size={24} />
           {item.speaker} · {item.date}
         </p>
+        {originalExpired && (
+          <p className="mt-3 flex items-start gap-1.5 rounded-2xl bg-white px-3 py-2.5 text-xs leading-relaxed text-muted">
+            <Icon name="clock" size={14} className="mt-px shrink-0" />
+            강연 후 {ORIGINAL_KEEP_DAYS}일이 지나 근거 원문은 지워졌어요. 근거 위치와 인용 구절만 볼 수 있어요.
+          </p>
+        )}
       </div>
 
       <div className="flex-1 px-5 pb-10 pt-6">
@@ -105,7 +116,7 @@ export default function ArchiveDetail() {
                 {q.kind === "ai" && q.retracted ? (
                   <div className="mt-3 rounded-[20px] bg-coral/15 p-4">
                     <p className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold">↩︎ AI 답변 철회됨</p>
-                    <p className="mt-2 text-sm leading-relaxed text-ink/60">강연자가 이 AI 답변을 철회했어요. 질문은 강연자에게 전달됐어요.</p>
+                    <p className="mt-2 text-[15px] font-bold">강연자가 직접 설명합니다</p>
                   </div>
                 ) : q.kind === "ai" ? (
                   <div className="mt-3 rounded-[20px] bg-mint/18 p-4">
@@ -113,10 +124,13 @@ export default function ArchiveDetail() {
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[10px] text-white">✦</span> AI 답변
                     </p>
                     <p className="text-sm leading-relaxed">{q.answer}</p>
-                    <SourceChips sources={q.sources ?? []} />
+                    <SourceChips sources={q.sources ?? []} originalExpired={originalExpired} />
                   </div>
                 ) : (
-                  <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-honey/35 px-3 py-1.5 text-xs font-semibold">📮 강연자에게 전달 · {q.status === "done" ? "답변 완료" : "대기"}</p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-honey/35 px-3 py-1.5 text-xs font-semibold">📮 강연자에게 전달됨</span>
+                    {q.status === "done" && <span className="inline-flex items-center gap-1 rounded-full bg-mint/25 px-3 py-1.5 text-xs font-semibold">✓ 답변 완료</span>}
+                  </div>
                 )}
               </div>
             ))}
@@ -129,31 +143,39 @@ export default function ArchiveDetail() {
             {[...item.questions]
               .sort((a, b) => b.likes - a.likes)
               .map((q) => (
-                <div key={q.id} className="flex items-center gap-3 rounded-[24px] bg-white p-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[15px] leading-snug">{q.text}</p>
-                    {(memos[q.id] ?? q.memo)?.trim() && (
-                      <p className="mt-2 flex gap-1.5 rounded-2xl bg-paper px-3 py-2 text-sm text-ink/70">
-                        <Icon name="pen" size={14} className="mt-0.5 shrink-0" />
-                        {memos[q.id] ?? q.memo}
-                      </p>
-                    )}
+                <div key={q.id} className="rounded-[24px] bg-white p-4">
+                  <div className="flex items-start gap-3">
+                    <p className="min-w-0 flex-1 text-[15px] leading-snug">{q.text}</p>
+                    <button
+                      onClick={() => setNoteFor({ id: q.id, text: q.text })}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${noteOf(q) ? "bg-ink text-white" : "bg-sand text-ink"}`}
+                      aria-label="필기 편집"
+                    >
+                      <Icon name="pen" size={15} />
+                    </button>
                   </div>
-                  <span
-                    className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold ${q.liked ? "bg-ink text-white" : "bg-sand text-ink/50"}`}
-                    aria-label={q.liked ? `내가 공감함 · 공감 ${q.likes}` : `공감 ${q.likes}`}
-                  >
-                    <Icon name="heart" size={14} /> {q.likes}
-                  </span>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sand px-2.5 py-1">
+                      <Icon name="heart" size={12} /> 공감 {q.likes}
+                    </span>
+                    {q.status === "done" && <span className="rounded-full bg-mint/25 px-2.5 py-1">✓ 답변 완료</span>}
+                    {q.liked && <span className="rounded-full bg-coral/20 px-2.5 py-1">💛 내가 공감</span>}
+                  </div>
+                  {noteOf(q).trim() && (
+                    <p className="mt-2 flex gap-1.5 rounded-2xl bg-paper px-3 py-2 text-sm text-ink/70">
+                      <Icon name="pen" size={14} className="mt-0.5 shrink-0" />
+                      {noteOf(q)}
+                    </p>
+                  )}
                 </div>
               ))}
           </div>
         )}
       </div>
 
-      <Modal open={!!confirm} onClose={() => setConfirm(null)} title={confirm?.kind === "all" ? "이 강의 기록을 모두 지울까요?" : "이 질문 기록을 지울까요?"}>
+      <Modal open={!!confirm} onClose={() => setConfirm(null)} title={confirm?.kind === "all" ? "이 강연 기록을 모두 지울까요?" : "이 질문 기록을 지울까요?"}>
         <p className="text-sm leading-relaxed text-muted">
-          {confirm?.kind === "all" ? "요약 노트와 내 질문, 전체 질문 기록이 모두 지워지고 되돌릴 수 없어요." : "내 보관함에서만 지워져요. 되돌릴 수 없어요."}
+          {confirm?.kind === "all" ? "요약 노트와 내 질문 · 필기가 내 보관함에서 모두 지워지고 되돌릴 수 없어요." : "내 보관함에서만 지워져요. 되돌릴 수 없어요."}
         </p>
         <div className="mt-6 flex gap-2">
           <Button variant="ghost" className="flex-1" onClick={() => setConfirm(null)}>
@@ -164,6 +186,8 @@ export default function ArchiveDetail() {
           </Button>
         </div>
       </Modal>
+
+      {noteFor && <NoteModal open onClose={() => setNoteFor(null)} questionId={noteFor.id} questionText={noteFor.text} initial={memos[noteFor.id] ?? item.questions.find((x) => x.id === noteFor.id)?.memo ?? ""} onSaved={(t) => toast.show(t ? "필기를 저장했어요" : "필기를 지웠어요", "mint")} />}
     </Screen>
   );
 }

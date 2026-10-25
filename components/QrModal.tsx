@@ -39,7 +39,7 @@ export function QrReissue({ lectureId, onDone }: { lectureId: string; onDone: (c
   );
 }
 
-// 강의실 화면에 띄우는 전체 화면 QR
+// 강연장 화면에 띄우는 전체 화면 QR
 export function QrModal({ open, onClose, code, title }: { open: boolean; onClose: () => void; code: string; title: string }) {
   if (!open) return null;
   return (

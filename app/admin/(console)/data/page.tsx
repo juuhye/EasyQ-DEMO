@@ -4,10 +4,8 @@ import { useState } from "react";
 import { AdminTitle, Dot, Panel } from "@/components/admin";
 import { Icon } from "@/components/Icon";
 import { Button, Pill, Progress, Tabs } from "@/components/ui";
-import { datasets, forwardKinds, judgeThreshold, labelCandidates, labelText, type LabelCandidate, type LabelKind } from "@/lib/admin";
-import { setDemo, useDemo } from "@/lib/store";
-
-const flip = (k: LabelKind): LabelKind => (k === "answerable" ? "forward" : "answerable");
+import { datasets, forwardKinds, judgeThresholds, labelCandidates, labelText, type LabelCandidate } from "@/lib/admin";
+import { setDemo, useDemo, type LabelDecision } from "@/lib/store";
 const originTone = { 철회: "bg-coral/20", 이관: "bg-ocean/15", "피드백 👎": "bg-honey/40" };
 
 export default function AdminData() {
@@ -116,47 +114,38 @@ function DatasetView() {
   );
 }
 
-// F12-2 라벨 검수
-type Decision = "approve" | "flip" | "exclude";
+// F12-2 라벨 검수: 질문 · 기본 라벨 · 검색 후보를 보고 정답 근거를 고른다. 근거가 없으면 강연자 이관 라벨이 된다
+const NONE = "__none__";
 
-// 임계값 바로 아래 점수부터, 임계값에서 가까운 순서로 검수한다
-const reviewOrder = [...labelCandidates].sort((a, b) => {
-  const below = (c: LabelCandidate) => (c.score < judgeThreshold ? 0 : 1);
-  return below(a) - below(b) || Math.abs(a.score - judgeThreshold) - Math.abs(b.score - judgeThreshold);
-});
+function sameDecision(a: LabelDecision, b: NonNullable<LabelCandidate["other"]>) {
+  return a.label === b.label && (a.label !== "answerable" || a.evidence === b.evidence);
+}
 
 function ReviewView() {
-  const { labelDecisions, labelEvidence } = useDemo();
-  const [choosing, setChoosing] = useState<Record<string, { d: Decision; evidence: string | null }>>({});
-  const decided = Object.values(labelDecisions);
-  const accepted = decided.filter((d) => d !== "exclude").length;
+  const { labelDecisions } = useDemo();
+  const versions = Object.keys(judgeThresholds);
+  const [version, setVersion] = useState(versions[0]);
+  const [picked, setPicked] = useState<Record<string, string>>({});
+  const threshold = judgeThresholds[version];
+  // 고른 모델 버전의 임계값에 가까운 점수부터 검수한다
+  const order = [...labelCandidates].sort((a, b) => Math.abs(a.scores[version] - threshold) - Math.abs(b.scores[version] - threshold));
+  const decided = labelCandidates.filter((c) => labelDecisions[c.id]);
+  const accepted = decided.filter((c) => labelDecisions[c.id].label !== "exclude").length;
+  const conflicts = decided.filter((c) => c.other && !sameDecision(labelDecisions[c.id], c.other)).length;
 
-  function decide(id: string, d: Decision | null, evidence?: string) {
+  function decide(id: string, d: LabelDecision | null) {
     setDemo((s) => {
       const next = { ...s.labelDecisions };
-      const ev = { ...s.labelEvidence };
       if (d) next[id] = d;
       else delete next[id];
-      if (evidence) ev[id] = evidence;
-      else delete ev[id];
-      return { labelDecisions: next, labelEvidence: ev };
-    });
-    closeChoice(id);
-  }
-
-  function closeChoice(id: string) {
-    setChoosing((m) => {
-      const next = { ...m };
-      delete next[id];
-      return next;
+      return { labelDecisions: next };
     });
   }
 
-  // 답변 가능으로 확정할 때는 검수자가 정답 근거를 먼저 고른다
-  function pick(c: LabelCandidate, d: Decision) {
-    const final = d === "approve" ? c.suggested : d === "flip" ? flip(c.suggested) : null;
-    if (final === "answerable") return setChoosing((m) => ({ ...m, [c.id]: { d, evidence: null } }));
-    decide(c.id, d);
+  function confirm(c: LabelCandidate) {
+    const p = picked[c.id];
+    if (!p) return;
+    decide(c.id, p === NONE ? { label: "forward", evidence: null } : { label: "answerable", evidence: p });
   }
 
   return (
@@ -165,107 +154,116 @@ function ReviewView() {
         <div className="min-w-0 flex-1 text-sm">
           <p className="text-base font-bold">
             검수 {decided.length} / {labelCandidates.length}
+            {conflicts > 0 && <span className="ml-2 rounded-full bg-coral px-2 py-0.5 text-xs text-ink">불일치 {conflicts}</span>}
           </p>
-          <p className="text-white/55">
-            철회 · 이관 · 👎 피드백이 익명 라벨 후보로 모였어요. 판정 임계값 {judgeThreshold.toFixed(2)} 바로 아래 점수부터 보여줘요. 승인 · 수정한 {accepted}건은 다음 데이터셋 ds-v4에 들어가요.
-          </p>
+          <p className="text-white/55">철회 · 이관 · 👎 피드백이 익명 라벨 후보로 모였어요. 확정한 {accepted}건은 다음 데이터셋 ds-v4에 들어가요.</p>
         </div>
         <Progress value={(decided.length / labelCandidates.length) * 100} className="w-full !bg-white/15 md:w-48" color="bg-mint" />
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-ink/70">모델 버전</span>
+        <Tabs value={version} onChange={setVersion} tabs={versions.map((v) => ({ value: v, label: v }))} />
+        <span className="text-xs text-muted">임계값 {threshold.toFixed(2)}에 가까운 순</span>
+      </div>
+
       <div className="mt-3 grid gap-3 md:grid-cols-2">
-        {reviewOrder.map((c) => {
+        {order.map((c) => {
           const d = labelDecisions[c.id];
-          const final = d === "approve" ? c.suggested : d === "flip" ? flip(c.suggested) : null;
-          const ch = choosing[c.id];
+          const score = c.scores[version];
+          const conflict = d && c.other && !sameDecision(d, c.other);
           return (
-            <div key={c.id} className={`flex flex-col rounded-[24px] bg-white p-5 transition-opacity ${d ? "opacity-60" : ""}`}>
+            <div key={c.id} className={`flex flex-col rounded-[24px] bg-white p-5 ${conflict ? "ring-2 ring-coral" : ""}`}>
               <div className="flex flex-wrap items-center gap-1.5">
                 <Pill className={originTone[c.origin]}>{c.origin}</Pill>
                 <span className="text-xs text-muted">{c.lecture}</span>
+                {conflict && <Pill className="ml-auto bg-coral text-ink">불일치</Pill>}
               </div>
               <p className="mt-3 text-[16px] font-semibold leading-snug">{c.question}</p>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className={`rounded-2xl p-3 ${c.base === "answerable" ? "bg-mint/18" : "bg-coral/15"}`}>
+                  <p className="text-muted">기본 라벨</p>
+                  <p className="mt-0.5 font-bold">{labelText[c.base]}</p>
+                </div>
                 <div className="rounded-2xl bg-paper p-3">
-                  <p className="text-muted">모델 판정</p>
+                  <p className="text-muted">{version} 판정 점수</p>
                   <p className="mt-0.5 font-bold">
-                    {labelText[c.predicted]} <span className="font-normal text-muted">({c.score.toFixed(2)})</span>
+                    {score.toFixed(2)}{" "}
+                    <span className="font-normal text-muted">
+                      (임계값 {score >= threshold ? "+" : ""}
+                      {(score - threshold).toFixed(2)})
+                    </span>
                   </p>
                 </div>
-                <div className={`rounded-2xl p-3 ${c.suggested === "answerable" ? "bg-mint/18" : "bg-coral/15"}`}>
-                  <p className="text-muted">제안 라벨</p>
-                  <p className="mt-0.5 font-bold">{labelText[c.suggested]}</p>
-                </div>
               </div>
-              {c.evidence && <p className="mt-3 text-xs leading-relaxed text-ink/60">검수 메모: {c.evidence}</p>}
 
-              <div className="mt-auto pt-4">
-                {d ? (
-                  <div>
+              {d ? (
+                <div className="mt-4 space-y-2 text-sm">
+                  <div className="rounded-2xl bg-paper p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1.5 text-sm font-semibold">
-                        <Icon name={d === "exclude" ? "x" : "check"} size={16} />
-                        {d === "exclude" ? "학습에서 제외" : `${withParticle(labelText[final!])} 확정${d === "flip" ? " · 수정" : ""}`}
+                      <span className="flex items-center gap-1.5 font-semibold">
+                        <Icon name={d.label === "exclude" ? "x" : "check"} size={16} />내 검수 · {d.label === "exclude" ? "학습에서 제외" : labelText[d.label]}
                       </span>
                       <button onClick={() => decide(c.id, null)} className="flex items-center gap-1 text-xs text-muted underline underline-offset-4">
                         <Icon name="undo" size={13} /> 되돌리기
                       </button>
                     </div>
-                    {labelEvidence[c.id] && <p className="mt-1.5 text-xs text-ink/60">정답 근거: {labelEvidence[c.id]}</p>}
+                    {d.label !== "exclude" && <p className="mt-1 text-xs text-ink/60">정답 근거: {d.evidence ?? "없음"}</p>}
                   </div>
-                ) : ch ? (
-                  <div className="rounded-2xl bg-paper p-3">
-                    <p className="text-xs font-semibold text-ink/70">AI 답변 가능으로 확정하려면 정답 근거를 골라 주세요</p>
-                    <div role="radiogroup" aria-label="정답 근거" className="mt-2 space-y-1.5">
-                      {c.evidenceOptions.map((ev) => (
+                  <div className={`rounded-2xl p-3 ${conflict ? "bg-coral/15" : "bg-paper"}`}>
+                    {c.other ? (
+                      <>
+                        <p className="font-semibold">
+                          {c.other.reviewer} · {c.other.label === "exclude" ? "학습에서 제외" : labelText[c.other.label]}
+                        </p>
+                        {c.other.label !== "exclude" && <p className="mt-1 text-xs text-ink/60">정답 근거: {c.other.evidence ?? "없음"}</p>}
+                        {conflict && <p className="mt-1 text-xs font-semibold text-coral-ink">두 검수 결과가 달라요. 다시 검토해 주세요.</p>}
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted">다른 검수자가 아직 검수하지 않았어요</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="mt-4 text-xs font-semibold text-ink/70">검색 후보 중 정답 근거를 골라 주세요</p>
+                  <div role="radiogroup" aria-label="정답 근거" className="mt-2 space-y-1.5">
+                    {[...c.hits.map((h) => ({ key: h.source, label: h.source, score: h.score as number | null })), { key: NONE, label: "정답 근거 없음 → 강연자 이관", score: null }].map((o) => {
+                      const on = picked[c.id] === o.key;
+                      return (
                         <button
-                          key={ev}
+                          key={o.key}
                           role="radio"
-                          aria-checked={ch.evidence === ev}
-                          onClick={() => setChoosing((m) => ({ ...m, [c.id]: { ...ch, evidence: ev } }))}
-                          className={`flex w-full items-start gap-2 rounded-xl bg-white p-2.5 text-left text-xs ring-inset ${ch.evidence === ev ? "ring-2 ring-ink" : ""}`}
+                          aria-checked={on}
+                          onClick={() => setPicked((m) => ({ ...m, [c.id]: o.key }))}
+                          className={`flex w-full items-start gap-2 rounded-xl bg-paper p-2.5 text-left text-xs ring-inset ${on ? "ring-2 ring-ink" : ""}`}
                         >
-                          <span className={`mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-white ${ch.evidence === ev ? "bg-ink" : "bg-ink/10"}`}>
+                          <span className={`mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-white ${on ? "bg-ink" : "bg-ink/10"}`}>
                             <Icon name="check" size={10} stroke={3.2} />
                           </span>
-                          {ev}
+                          <span className="flex-1">{o.label}</span>
+                          {o.score !== null && <span className="shrink-0 text-muted tabular-nums">{o.score.toFixed(2)}</span>}
                         </button>
-                      ))}
-                    </div>
-                    <div className="mt-2.5 flex gap-2">
-                      <Button size="sm" className="flex-1" icon="check" disabled={!ch.evidence} onClick={() => ch.evidence && decide(c.id, ch.d, ch.evidence)}>
-                        근거와 함께 확정
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => closeChoice(c.id)}>
-                        취소
-                      </Button>
-                    </div>
+                      );
+                    })}
                   </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1" icon="check" onClick={() => pick(c, "approve")}>
-                      승인
+                  <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
+                    <Icon name="lock" size={12} /> 다른 검수자의 결과는 내 검수를 마친 뒤에 보여요
+                  </p>
+                  <div className="mt-auto flex gap-2 pt-3">
+                    <Button size="sm" className="flex-1" icon="check" disabled={!picked[c.id]} onClick={() => confirm(c)}>
+                      확정
                     </Button>
-                    <Button size="sm" variant="soft" className="flex-1" icon="pen" onClick={() => pick(c, "flip")}>
-                      {withParticle(labelText[flip(c.suggested)])} 수정
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => pick(c, "exclude")}>
-                      제외
+                    <Button size="sm" variant="ghost" onClick={() => decide(c.id, { label: "exclude", evidence: null })}>
+                      학습에서 제외
                     </Button>
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           );
         })}
       </div>
     </div>
   );
-}
-
-// 받침에 맞춰 ‘로’/‘으로’를 붙인다 (ㄹ 받침은 ‘로’)
-function withParticle(word: string) {
-  const code = word.charCodeAt(word.length - 1) - 0xac00;
-  const jong = code >= 0 && code <= 11171 ? code % 28 : 0;
-  return `${word}${jong === 0 || jong === 8 ? "로" : "으로"}`;
 }

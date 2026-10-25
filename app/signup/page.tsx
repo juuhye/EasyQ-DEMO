@@ -1,16 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
-import { Button, Field, Screen, TopBar, inputCls, useToast } from "@/components/ui";
+import { Button, Field, Screen, TopBar, inputCls } from "@/components/ui";
+import { EMAIL_RE, pwRules as rules, pwValid } from "@/lib/auth";
 import { setDemo } from "@/lib/store";
-
-const rules = [
-  { label: "8자 이상", test: (p: string) => p.length >= 8 },
-  { label: "영문 포함", test: (p: string) => /[a-zA-Z]/.test(p) },
-  { label: "숫자 포함", test: (p: string) => /\d/.test(p) },
-];
 
 const consents = [
   { key: "terms", label: "서비스 이용약관 동의", required: true },
@@ -20,53 +16,25 @@ const consents = [
 ];
 
 export default function Signup() {
-  const toast = useToast();
-  const [step, setStep] = useState<"form" | "sent">("form");
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [agree, setAgree] = useState<Record<string, boolean>>({});
   const [emailError, setEmailError] = useState("");
 
-  const pwOk = rules.every((r) => r.test(pw));
+  const pwOk = pwValid(pw);
   const allAgree = consents.every((c) => agree[c.key]);
   const requiredAgree = consents.every((c) => !c.required || agree[c.key]);
-  const valid = name.trim() && email.includes("@") && pwOk && requiredAgree;
+  const valid = name.trim() && EMAIL_RE.test(email.trim()) && pwOk && requiredAgree;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (email === "juhye@gachon.ac.kr") return setEmailError("이미 가입된 이메일이에요.");
-    // 동의는 계정 단위로 저장하고, 입장할 때 다시 묻지 않는다
-    setDemo({ consent: { keep: true, learn: !!agree.learn } });
-    setStep("sent");
+    // 동의는 계정 단위로 저장하고, 입장할 때 다시 묻지 않는다. 가입 후 자동 로그인 없이 인증 코드부터 입력한다
+    setDemo({ consent: { keep: true, learn: !!agree.learn }, signup: { name: name.trim(), email: email.trim(), pw, verified: false } });
+    router.push(`/verify?email=${encodeURIComponent(email.trim())}`);
   }
-
-  if (step === "sent")
-    return (
-      <Screen width="narrow">
-        {toast.node}
-        <TopBar back="/" />
-        <div className="flex flex-1 flex-col items-center px-8 pt-10 text-center">
-          <Sticker size={96} rotate={-8} float>
-            💌
-          </Sticker>
-          <h1 className="mt-8 text-[34px] font-extrabold tracking-[-0.05em]">인증 메일을 보냈어요</h1>
-          <p className="mt-3 leading-relaxed text-muted">
-            <b className="text-ink">{email}</b> 로 보낸
-            <br />
-            링크를 누르면 가입이 끝나요.
-          </p>
-          <div className="mt-auto w-full space-y-3 pb-10">
-            <Button href="/login" size="lg" className="w-full">
-              로그인하러 가기
-            </Button>
-            <Button variant="white" size="lg" className="w-full" onClick={() => toast.show("인증 메일을 다시 보냈어요")}>
-              메일 다시 보내기
-            </Button>
-          </div>
-        </div>
-      </Screen>
-    );
 
   return (
     <Screen width="narrow">
@@ -129,7 +97,7 @@ export default function Signup() {
             </button>
           ))}
           <p className="mt-3 rounded-2xl bg-paper p-3 text-xs leading-relaxed text-muted">
-            음성 원본은 저장하지 않아요. 세션 데이터는 강의가 끝나고 3개월이 지나면 자동으로 지워지고, 학습에는 개인정보를 뺀 익명 데이터만 써요. 여기서 동의한 내용은 강의에 입장할 때마다 다시 묻지 않고, 마이페이지에서 바꿀 수 있어요.
+            음성 원본은 저장하지 않아요. 강연 데이터는 강연이 끝나고 3개월이 지나면 자동으로 지워지고, 학습에는 개인정보를 뺀 익명 데이터만 써요. 여기서 동의한 내용은 강연에 입장할 때마다 다시 묻지 않고, 마이페이지에서 바꿀 수 있어요.
           </p>
         </div>
 

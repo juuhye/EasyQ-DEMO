@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AdminTitle, Panel } from "@/components/admin";
 import { Icon } from "@/components/Icon";
+import { EndReasonPill } from "@/components/lecture";
 import { Button, Empty, Modal, StatusPill, Tabs, useToast } from "@/components/ui";
 import { adminSessions, type AdminSession } from "@/lib/admin";
 import { setDemo } from "@/lib/store";
@@ -19,17 +20,24 @@ export default function AdminSessions() {
 
   function forceEnd() {
     if (!target) return;
-    setList((l) => l.map((s) => (s.id === target.id ? { ...s, status: "ended", issue: undefined } : s)));
-    // 데모 강연자 화면(내 강의)에도 종료가 반영되도록
-    setDemo((s) => ({ endedLectures: [...s.endedLectures, target.id] }));
-    toast.show("세션을 강제 종료했어요. 질문이 마감되고 QR이 꺼졌어요.", "coral");
+    setList((l) => l.map((s) => (s.id === target.id ? { ...s, status: "ended", issue: undefined, endReason: "admin" } : s)));
+    // 데모 강연자 · 청중 화면에도 종료가 반영되도록
+    setDemo((s) => ({ endedLectures: [...s.endedLectures, target.id], endReasons: { ...s.endReasons, [target.id]: "admin" } }));
+    toast.show("강연을 강제 종료했어요. 질문이 마감되고 QR이 꺼졌어요.", "coral");
     setTarget(null);
+  }
+
+  // 평가용 강연 표시는 시작 전에만 바꿀 수 있다
+  function toggleEval(target: AdminSession) {
+    if (target.status !== "ready") return;
+    setList((l) => l.map((s) => (s.id === target.id ? { ...s, evaluation: !s.evaluation } : s)));
+    toast.show(target.evaluation ? "평가용 표시를 껐어요" : "평가용 강연으로 표시했어요. 처리 로그를 평가셋으로 따로 모아요", "mint");
   }
 
   return (
     <>
       {toast.node}
-      <AdminTitle desc="모든 회원의 세션을 보고, 문제가 생긴 세션을 강제로 종료해요">세션 관리</AdminTitle>
+      <AdminTitle desc="모든 회원의 강연을 보고, 평가용 강연을 표시하거나 문제가 생긴 강연을 강제로 종료해요">강연 관리</AdminTitle>
 
       {issues.length > 0 && (
         <div className="mt-6 grid gap-3 md:grid-cols-2">
@@ -64,18 +72,19 @@ export default function AdminSessions() {
 
       <Panel className="mt-4">
         {shown.length === 0 ? (
-          <Empty title="해당하는 세션이 없어요" />
+          <Empty title="해당하는 강연이 없어요" />
         ) : (
           <div className="-mx-5 overflow-x-auto px-5">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="text-xs text-muted">
                 <tr className="border-b border-line">
-                  <th className="pb-2 font-medium">세션</th>
+                  <th className="pb-2 font-medium">강연</th>
                   <th className="pb-2 font-medium">강연자</th>
                   <th className="pb-2 font-medium">일시</th>
                   <th className="pb-2 text-right font-medium">청중</th>
                   <th className="pb-2 text-right font-medium">질문</th>
                   <th className="pb-2 pl-4 font-medium">상태</th>
+                  <th className="pb-2 pl-4 font-medium">평가용</th>
                   <th className="pb-2" />
                 </tr>
               </thead>
@@ -94,7 +103,23 @@ export default function AdminSessions() {
                     <td className="py-3 text-right">{s.audience}</td>
                     <td className="py-3 text-right">{s.questions}</td>
                     <td className="py-3 pl-4">
-                      <StatusPill status={s.status} onColor />
+                      <div className="flex flex-col items-start gap-1">
+                        <StatusPill status={s.status} onColor />
+                        {s.status === "ended" && s.endReason && <EndReasonPill reason={s.endReason} />}
+                      </div>
+                    </td>
+                    <td className="py-3 pl-4">
+                      <button
+                        role="switch"
+                        aria-checked={!!s.evaluation}
+                        aria-label={`${s.title} 평가용 강연`}
+                        disabled={s.status !== "ready"}
+                        title={s.status !== "ready" ? "시작 전에만 바꿀 수 있어요" : undefined}
+                        onClick={() => toggleEval(s)}
+                        className={`flex h-7 w-12 items-center rounded-full p-1 transition-colors disabled:opacity-35 ${s.evaluation ? "bg-ink" : "bg-ink/15"}`}
+                      >
+                        <span className={`h-5 w-5 rounded-full bg-white transition-transform ${s.evaluation ? "translate-x-5" : ""}`} />
+                      </button>
                     </td>
                     <td className="py-3 text-right">
                       {s.status !== "ended" && (
@@ -111,7 +136,7 @@ export default function AdminSessions() {
         )}
       </Panel>
 
-      <Modal open={!!target} onClose={() => setTarget(null)} title="세션을 강제 종료할까요?">
+      <Modal open={!!target} onClose={() => setTarget(null)} title="강연을 강제 종료할까요?">
         <p className="font-semibold">{target?.title}</p>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           강연자가 종료한 것과 같이 처리돼요. 질문 접수가 마감되고 QR · 입장 링크가 꺼지며, 강연자와 청중 {target?.audience ?? 0}명에게 종료 안내가 가요.

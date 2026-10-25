@@ -7,17 +7,17 @@ import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { QrModal, QrReissue } from "@/components/QrModal";
 import { Button, Empty, Modal, Progress, Screen, StatusPill, TopBar, inputCls, useToast } from "@/components/ui";
+import { FileStatePill, MAX_MB, SttConsentModal, validateDeck } from "@/components/lecture";
 import { findLecture, statusOf, type FileState, type Lecture } from "@/lib/mock";
-import { useDemo } from "@/lib/store";
+import { setDemo, useDemo } from "@/lib/store";
 
 const stages = ["업로드", "텍스트 추출 · 청킹", "임베딩 · 인덱싱", "용어 사전 생성"];
-const MAX_MB = 50;
 
 export default function LectureDetail() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const { created, endedLectures, codes } = useDemo();
+  const { created, endedLectures, startedLectures, codes } = useDemo();
 
   const base: Lecture | undefined =
     id === "new-lecture" && created
@@ -31,6 +31,7 @@ export default function LectureDetail() {
   const [newTerm, setNewTerm] = useState("");
   const [qrOpen, setQrOpen] = useState(false);
   const [warn, setWarn] = useState(false);
+  const [sttOpen, setSttOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 교안 처리 진행 시뮬레이션
@@ -47,8 +48,8 @@ export default function LectureDetail() {
     return () => clearTimeout(t);
   }, [processing, progress, showToast]);
 
-  // 준비 화면은 시작 전 강의만. 진행 중이면 대시보드, 끝났으면 리포트로 보낸다
-  const status = base ? statusOf(base, endedLectures) : null;
+  // 준비 화면은 시작 전 강연만. 진행 중이면 대시보드, 끝났으면 리포트로 보낸다
+  const status = base ? statusOf(base, endedLectures, startedLectures) : null;
   useEffect(() => {
     if (status === "ended") router.replace(`/lectures/${id}/report`);
     if (status === "live") router.replace(`/lectures/${id}/live`);
@@ -58,7 +59,7 @@ export default function LectureDetail() {
     return (
       <Screen>
         <TopBar back="/lectures" />
-        <Empty title="강의를 찾을 수 없어요" />
+        <Empty title="강연을 찾을 수 없어요" />
       </Screen>
     );
   if (status !== "ready") return <Screen>{null}</Screen>;
@@ -68,13 +69,8 @@ export default function LectureDetail() {
   const stageIdx = Math.min(stages.length - 1, Math.floor(progress / 25));
 
   async function pick(f: File) {
-    const ext = f.name.split(".").pop()?.toLowerCase();
-    if (!ext || !["pdf", "pptx"].includes(ext)) return setFileError("PDF 또는 PPTX 파일만 올릴 수 있어요.");
-    if (f.size > MAX_MB * 1024 * 1024) return setFileError(`${MAX_MB}MB 이하 파일만 올릴 수 있어요.`);
-    // 확장자만 바꾼 파일이나 깨진 파일: PDF는 %PDF, PPTX는 ZIP(PK) 헤더로 시작해야 한다
-    const head = new Uint8Array(await f.slice(0, 4).arrayBuffer());
-    const ok = ext === "pdf" ? String.fromCharCode(...head) === "%PDF" : head[0] === 0x50 && head[1] === 0x4b;
-    if (!ok) return setFileError("파일이 손상됐거나 열 수 없어요. 원본 파일을 다시 저장해서 올려 주세요.");
+    const err = await validateDeck(f);
+    if (err) return setFileError(err);
     setFileError("");
     start({ name: f.name, pages: 30 + Math.floor(Math.random() * 15), chunks: 0, state: "processing" });
   }
@@ -84,15 +80,24 @@ export default function LectureDetail() {
     setFile({ ...f, state: "processing", failReason: undefined });
   }
 
+  // 교안이 없어도 시작할 수 있다. 처리 중 · 실패면 경고만 하고, 시작 전에 음성 인식 동의를 받는다
   function begin(force = false) {
-    if (file?.state !== "done" && !force) return setWarn(true);
-    router.push(`/lectures/${lecture.id === "new-lecture" ? "l1" : lecture.id}/live`);
+    if (file && file.state !== "done" && !force) return setWarn(true);
+    setWarn(false);
+    setSttOpen(true);
+  }
+
+  function startLecture() {
+    // 데모: 새로 만든 강연은 진행 중 데모 강연(l1) 대시보드로 보낸다
+    const target = lecture.id === "new-lecture" ? "l1" : lecture.id;
+    setDemo((s) => ({ startedLectures: [...s.startedLectures, lecture.id] }));
+    router.push(`/lectures/${target}/live`);
   }
 
   return (
     <Screen>
       {toast.node}
-      <TopBar back="/lectures" title="강의 준비" />
+      <TopBar back="/lectures" title="강연 준비" />
 
       <div className="flex-1 px-5 pb-32">
         <Bubble tone={lecture.tone}>
@@ -112,7 +117,7 @@ export default function LectureDetail() {
         </Bubble>
 
         {/* 1. 교안 */}
-        <Step n={1} title="교안 올리기" done={file?.state === "done"}>
+        <Step n={1} title="교안 올리기" done={file?.state === "done"} desc="교안 없이도 강연을 시작할 수 있어요. 진행 중에도 교안을 추가로 올릴 수 있어요.">
           {!file && (
             <>
               <button
@@ -131,10 +136,10 @@ export default function LectureDetail() {
                 <p className="mt-3 font-bold">PDF · PPTX 교안을 끌어오거나 눌러서 선택</p>
                 <p className="mt-1 text-xs text-muted">최대 {MAX_MB}MB · 텍스트가 없는 스캔 PDF는 읽을 수 없어요</p>
               </button>
-              <input ref={inputRef} type="file" accept=".pdf,.pptx" className="hidden" onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
-              {fileError && <p className="mt-2 text-center text-sm text-[#e5484d]">{fileError}</p>}
             </>
           )}
+          <input ref={inputRef} type="file" accept=".pdf,.pptx" className="hidden" onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
+          {fileError && <p className="mt-2 text-center text-sm text-[#e5484d]">{fileError}</p>}
 
           {file && (
             <div className="rounded-[24px] bg-white p-4">
@@ -146,15 +151,20 @@ export default function LectureDetail() {
                   <p className="truncate font-bold">{file.name}</p>
                   <p className="text-xs text-muted">{fileLabel(file.state, file.pages, file.chunks)}</p>
                 </div>
+                <FileStatePill state={file.state} />
+                {/* 교안 삭제는 시작 전(DRAFT)과 종료 후에만 할 수 있다 */}
                 {file.state !== "processing" && (
                   <button
                     onClick={() => {
                       setFile(null);
                       setProgress(0);
+                      setTerms([]);
+                      toast.show("교안을 삭제했어요");
                     }}
-                    className="text-xs text-muted underline underline-offset-4"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-ink/5"
+                    aria-label="교안 삭제"
                   >
-                    바꾸기
+                    <Icon name="trash" size={16} />
                   </button>
                 )}
               </div>
@@ -181,9 +191,15 @@ export default function LectureDetail() {
                     <Icon name="alert" size={16} /> 처리에 실패했어요
                   </p>
                   <p className="mt-1 text-sm text-muted">{file.failReason}</p>
-                  <Button size="sm" icon="undo" className="mt-3" onClick={() => start(file)}>
-                    다시 시도
-                  </Button>
+                  <p className="mt-1 text-sm text-muted">다시 시도해도 안 되면 다른 파일로 교체해 주세요. 교체하면 처음부터 다시 처리해요.</p>
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" icon="undo" onClick={() => start(file)}>
+                      다시 시도
+                    </Button>
+                    <Button size="sm" variant="ghost" icon="upload" onClick={() => inputRef.current?.click()}>
+                      다른 파일로 교체
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -226,7 +242,7 @@ export default function LectureDetail() {
         </Step>
 
         {/* 3. QR */}
-        <Step n={3} title="청중 입장 QR" done desc="강의를 시작하면 청중이 이 QR로 들어와요.">
+        <Step n={3} title="청중 입장 QR" done desc="강연을 시작하면 청중이 이 QR로 들어와요.">
           <div className="flex items-center gap-4 rounded-[24px] bg-white p-4">
             <FakeQR code={code} size={112} />
             <div className="flex-1">
@@ -249,7 +265,7 @@ export default function LectureDetail() {
       <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-paper via-paper to-transparent pb-7 pt-8">
         <div className="mx-auto px-5 md:max-w-3xl">
           <Button size="lg" icon="play" className="w-full" onClick={() => begin()}>
-            강의 시작하기
+            강연 시작
           </Button>
         </div>
       </div>
@@ -261,7 +277,7 @@ export default function LectureDetail() {
           <Sticker size={56} rotate={-8}>
             ⏳
           </Sticker>
-          <p className="mt-4 text-[22px] font-extrabold tracking-[-0.04em]">교안 준비가 아직 안 끝났어요</p>
+          <p className="mt-4 text-[22px] font-extrabold tracking-[-0.04em]">{file?.state === "failed" ? "교안 처리에 실패했어요" : "교안 준비가 아직 안 끝났어요"}</p>
           <p className="mt-2 text-sm leading-relaxed text-muted">지금 시작하면 AI가 교안을 근거로 쓰지 못해 더 많은 질문이 강연자에게 넘어올 수 있어요.</p>
         </div>
         <div className="mt-6 flex gap-2">
@@ -273,6 +289,8 @@ export default function LectureDetail() {
           </Button>
         </div>
       </Modal>
+
+      <SttConsentModal open={sttOpen} onClose={() => setSttOpen(false)} onConfirm={startLecture} noFile={!file} />
     </Screen>
   );
 }
@@ -280,7 +298,7 @@ export default function LectureDetail() {
 function fileLabel(state: FileState, pages: number, chunks: number) {
   if (state === "processing") return "AI가 교안을 읽는 중이에요";
   if (state === "failed") return "처리 실패";
-  return `${pages}페이지 · 검색 조각 ${chunks}개 · 준비 완료`;
+  return `${pages}쪽 · 검색 조각 ${chunks}개`;
 }
 
 function Step({ n, title, desc, done, children }: { n: number; title: string; desc?: string; done?: boolean; children: React.ReactNode }) {

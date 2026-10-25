@@ -29,13 +29,13 @@ export default function NewLecture() {
       <TopBar back="/lectures" />
       <form onSubmit={submit} className="flex flex-1 flex-col px-6 pb-10">
         <h1 className="pt-2 text-[38px] font-extrabold leading-[1.08] tracking-[-0.05em]">
-          새 강의 <Sticker size={34} rotate={10}>🎤</Sticker>
+          새 강연 <Sticker size={34} rotate={10}>🎤</Sticker>
           <br />
           <span className="text-ink/35">승인 없이 바로 만들어요</span>
         </h1>
 
         <div className="mt-6 space-y-4">
-          <Field label="강의명" error={touched && !title.trim() ? "강의명을 입력해 주세요." : undefined}>
+          <Field label="강연명" error={touched && !title.trim() ? "강연명을 입력해 주세요." : undefined}>
             <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 인공지능 개론 8주차 · GPT" maxLength={40} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
@@ -47,7 +47,7 @@ export default function NewLecture() {
             </Field>
           </div>
           <Field label="설명 (선택)" hint="청중 입장 화면에 보여요">
-            <textarea className={`${inputCls} resize-none`} rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="이번 강의에서 다룰 내용" />
+            <textarea className={`${inputCls} resize-none`} rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="이번 강연에서 다룰 내용" />
           </Field>
         </div>
 

@@ -5,11 +5,12 @@ import { useState } from "react";
 import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Empty, PageTitle, RoundButton, Screen, StatusPill, Tabs } from "@/components/ui";
-import { lectures, logStats, questionLogs, type LectureStatus } from "@/lib/mock";
+import { EndReasonPill } from "@/components/lecture";
+import { lectures, logStats, questionLogs, statusOf, type LectureStatus } from "@/lib/mock";
 import { useDemo } from "@/lib/store";
 
 export default function Lectures() {
-  const { created, deletedLectures, endedLectures } = useDemo();
+  const { created, deletedLectures, endedLectures, startedLectures, endReasons } = useDemo();
   const [tab, setTab] = useState<LectureStatus>("live");
 
   const all = [
@@ -17,13 +18,13 @@ export default function Lectures() {
     ...lectures,
   ]
     .filter((l) => !deletedLectures.includes(l.id))
-    .map((l) => (endedLectures.includes(l.id) ? { ...l, status: "ended" as const } : l));
+    .map((l) => ({ ...l, status: statusOf(l, endedLectures, startedLectures) }));
   const list = all.filter((l) => l.status === tab);
 
   return (
     <Screen nav>
-      <PageTitle meta={`${all.length}개 강의`} action={<RoundButton href="/lectures/new" icon="plus" label="새 강의" />}>
-        내 강의
+      <PageTitle meta={`${all.length}개 강연`} action={<RoundButton href="/lectures/new" icon="plus" label="새 강연" />}>
+        내 강연
       </PageTitle>
 
       <div className="px-5">
@@ -34,12 +35,12 @@ export default function Lectures() {
           tabs={[
             { value: "live", label: "진행 중", count: all.filter((l) => l.status === "live").length },
             { value: "ready", label: "예정", count: all.filter((l) => l.status === "ready").length },
-            { value: "ended", label: "지난 강의", count: all.filter((l) => l.status === "ended").length },
+            { value: "ended", label: "지난 강연", count: all.filter((l) => l.status === "ended").length },
           ]}
         />
 
         {list.length === 0 ? (
-          <Empty title="해당하는 강의가 없어요" />
+          <Empty title="해당하는 강연이 없어요" />
         ) : (
           <div className="mt-5">
             {list.map((l, i) => {
@@ -49,7 +50,10 @@ export default function Lectures() {
                   <Bubble tone={l.tone} tail={i % 2 ? "right" : "left"} className={`mb-[22px] ${i ? "-mt-1" : ""}`} style={{ zIndex: list.length - i }}>
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
-                        <StatusPill status={l.status} onColor />
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <StatusPill status={l.status} onColor />
+                          {l.status === "ended" && <EndReasonPill reason={endReasons[l.id] ?? l.endReason ?? "manual"} />}
+                        </span>
                         <p className="mt-2.5 text-[21px] font-extrabold leading-tight tracking-[-0.04em]">{l.title}</p>
                         <p className="mt-1 text-sm text-ink/60">
                           {l.date} {l.time}
