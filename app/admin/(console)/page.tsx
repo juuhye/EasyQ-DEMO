@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AdminTitle, Dot, Panel, Stat } from "@/components/admin";
 import { Icon } from "@/components/Icon";
-import { Progress, Tabs } from "@/components/ui";
+import { Button, Progress, Tabs, inputCls, useToast } from "@/components/ui";
 import { costBudget, dailyMetrics, latencyTarget, opsMetrics, sessionMetrics, type Period } from "@/lib/admin";
 
 const won = (n: number) => `${n.toLocaleString()}원`;
@@ -14,13 +14,27 @@ const pair = (a: number | null, b: number | null) => `${sec(a)} · ${sec(b)}`;
 export default function AdminDashboard() {
   const [period, setPeriod] = useState<Period>("week");
   const m = opsMetrics[period];
+  const toast = useToast();
+  // 월 예산 (API-65로 저장). 바꾸면 사용률 · 경고 배너가 바로 다시 계산된다
+  const [budget, setBudget] = useState(costBudget.limit);
+  const [budgetDraft, setBudgetDraft] = useState(String(costBudget.limit));
+  const draftValue = Number(budgetDraft);
+  const draftValid = Number.isInteger(draftValue) && draftValue >= 1000;
   const monthCost = opsMetrics.month.cost;
-  const costRatio = monthCost / costBudget.limit;
+  const costRatio = monthCost / budget;
   const perLecture = Math.round(m.cost / m.sessions);
   const maxQ = Math.max(...dailyMetrics.map((d) => d.questions));
 
+  function saveBudget(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draftValid) return;
+    setBudget(draftValue);
+    toast.show(`월 예산을 ${won(draftValue)}으로 바꿨어요`);
+  }
+
   return (
     <>
+      {toast.node}
       <AdminTitle
         desc="처리 로그(F4-7)를 강연 · 일 단위로 모았어요"
         action={
@@ -46,7 +60,7 @@ export default function AdminDashboard() {
           <div className="min-w-0 flex-1 text-sm">
             <p className="text-base font-bold">이번 달 API 비용이 한도의 {Math.round(costRatio * 100)}%에 도달했어요</p>
             <p className="text-white/55">
-              {won(monthCost)} / {won(costBudget.limit)} · {Math.round(costBudget.alertAt * 100)}%를 넘으면 알림을 보내요
+              {won(monthCost)} / {won(budget)} · {Math.round(costBudget.alertAt * 100)}%를 넘으면 알림을 보내요
             </p>
           </div>
         </div>
@@ -118,7 +132,7 @@ export default function AdminDashboard() {
         <Panel title="이번 달 비용 한도" desc="Sonnet · 임베딩 · STT 호출 합계">
           <p className="text-[30px] font-extrabold leading-none tracking-[-0.04em]">
             {won(monthCost)}
-            <span className="text-base font-semibold text-muted"> / {won(costBudget.limit)}</span>
+            <span className="text-base font-semibold text-muted"> / {won(budget)}</span>
           </p>
           <Progress value={costRatio * 100} className="mt-4 !h-3" color={costRatio >= costBudget.alertAt ? "bg-coral" : "bg-ink"} />
           <div className="mt-5 space-y-2.5 text-sm">
@@ -134,6 +148,29 @@ export default function AdminDashboard() {
               </div>
             ))}
           </div>
+          <form onSubmit={saveBudget} className="mt-5 border-t border-line pt-4">
+            <label htmlFor="budget" className="text-xs font-semibold text-muted">
+              월 예산 설정
+            </label>
+            <div className="mt-1.5 flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  id="budget"
+                  inputMode="numeric"
+                  className={`${inputCls} pr-9`}
+                  value={budgetDraft}
+                  onChange={(e) => setBudgetDraft(e.target.value.replace(/[^0-9]/g, "").slice(0, 9))}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">원</span>
+              </div>
+              <Button type="submit" variant="soft" disabled={!draftValid || draftValue === budget}>
+                저장
+              </Button>
+            </div>
+            <p className={`mt-1.5 text-xs ${budgetDraft && !draftValid ? "text-coral-ink" : "text-muted"}`}>
+              {budgetDraft && !draftValid ? "1,000원 이상으로 입력해 주세요." : `사용률이 ${Math.round(costBudget.alertAt * 100)}%를 넘으면 경고를 보여줘요.`}
+            </p>
+          </form>
         </Panel>
       </div>
 

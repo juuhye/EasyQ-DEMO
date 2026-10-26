@@ -393,6 +393,21 @@ export type ArchiveItem = {
 
 export const archive: ArchiveItem[] = [
   {
+    // 다른 회원(이하준)이 연 종료 강연. 요약 노트를 아직 만드는 중인 예시
+    id: "r6",
+    title: "창업 세미나 · 투자 유치 첫걸음",
+    speaker: "이하준 대표",
+    date: "2026.10.21",
+    tone: "mint",
+    emoji: "💼",
+    summary: "generating",
+    myQuestions: [{ id: "m8", text: "시드 단계에서 지분은 얼마나 내주는 게 보통인가요?", kind: "forwarded", status: "done" }],
+    questions: [
+      { id: "m8", text: "시드 단계에서 지분은 얼마나 내주는 게 보통인가요?", likes: 9, status: "done", liked: false },
+      { id: "k13", text: "IR 자료는 몇 장 정도로 만드는 게 좋나요?", likes: 5, status: "done", liked: true },
+    ],
+  },
+  {
     id: "r1",
     title: "컴퓨터 비전 특강 · Diffusion 모델",
     speaker: "김서연 교수",

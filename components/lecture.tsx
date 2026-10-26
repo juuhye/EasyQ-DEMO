@@ -34,13 +34,31 @@ export function EndReasonPill({ reason }: { reason: EndReason }) {
   );
 }
 
-// 강연 시작 시 음성 인식(STT) 동의
+// 강연 시작 시 음성 인식(STT) 동의. 동의 후 마이크 권한을 받아야 강연을 시작한다
 export function SttConsentModal({ open, onClose, onConfirm, noFile = false }: { open: boolean; onClose: () => void; onConfirm: () => void; noFile?: boolean }) {
   const [agree, setAgree] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [micError, setMicError] = useState<"denied" | "missing" | null>(null);
   const close = () => {
     setAgree(false);
+    setMicError(null);
     onClose();
   };
+
+  async function confirm() {
+    setChecking(true);
+    setMicError(null);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("unsupported");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      onConfirm();
+    } catch (e) {
+      setMicError(e instanceof DOMException && (e.name === "NotFoundError" || e.name === "NotReadableError") ? "missing" : "denied");
+    } finally {
+      setChecking(false);
+    }
+  }
   return (
     <Modal open={open} onClose={close} title="음성 인식에 동의해 주세요">
       <p className="text-sm leading-relaxed text-muted">강연을 시작하면 마이크 음성을 실시간으로 인식해 AI 답변의 근거로 써요.</p>
@@ -68,12 +86,25 @@ export function SttConsentModal({ open, onClose, onConfirm, noFile = false }: { 
         </span>
         위 내용을 확인했고 음성 인식에 동의해요
       </button>
+      {micError && (
+        <div role="alert" className="mt-4 rounded-2xl bg-coral/15 px-3.5 py-3 text-sm leading-relaxed">
+          <p className="flex items-center gap-1.5 font-bold text-coral-ink">
+            <Icon name="alert" size={16} className="shrink-0" />
+            {micError === "denied" ? "마이크 권한이 없어 강연을 시작할 수 없어요" : "마이크를 찾을 수 없어요"}
+          </p>
+          <p className="mt-1 text-ink/75">
+            {micError === "denied"
+              ? "주소창 왼쪽의 사이트 설정(자물쇠) 아이콘을 눌러 마이크를 '허용'으로 바꾼 뒤 다시 시작해 주세요. 휴대폰은 브라우저 설정의 사이트 권한에서 바꿀 수 있어요."
+              : "마이크가 연결돼 있는지, 다른 앱이 마이크를 쓰고 있지 않은지 확인한 뒤 다시 시작해 주세요."}
+          </p>
+        </div>
+      )}
       <div className="mt-6 flex gap-2">
         <Button variant="soft" className="flex-1" onClick={close}>
           취소
         </Button>
-        <Button className="flex-1" icon="play" disabled={!agree} onClick={onConfirm}>
-          동의하고 시작
+        <Button className="flex-1" icon="play" disabled={!agree || checking} onClick={confirm}>
+          {checking ? "마이크 확인 중…" : "동의하고 시작"}
         </Button>
       </div>
     </Modal>

@@ -76,10 +76,12 @@ export default function AudienceLive() {
 }
 
 // 화면 위쪽: 나가기 · 강연 상태 · 내 이름(게스트는 닉네임)
+// 나가기: 회원은 홈, 게스트는 시작 화면으로
 function RoomHeader({ who, badge }: { who: string; badge: React.ReactNode }) {
+  const isGuest = useDemo().guestName !== null;
   return (
     <div className="flex items-center justify-between gap-2">
-      <RoundButton href="/home" icon="back" label="나가기" />
+      <RoundButton href={isGuest ? "/" : "/home"} icon="back" label="나가기" />
       {badge}
       <span className="flex max-w-[40%] items-center gap-1.5 truncate rounded-full bg-white px-3 py-1.5 text-sm font-semibold">
         <Icon name="user" size={14} className="shrink-0" />
