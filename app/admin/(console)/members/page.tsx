@@ -32,7 +32,7 @@ export default function AdminMembers() {
 
   function suspend() {
     if (!target) return;
-    update(target.id, { status: "suspended", suspendReason: detail.trim() ? `${reason} — ${detail.trim()}` : reason });
+    update(target.id, { status: "suspended", suspensionReason: detail.trim() ? `${reason} — ${detail.trim()}` : reason });
     toast.show(`${target.name} 님을 정지했어요. 다음 로그인부터 막혀요.`, "coral");
     setTarget(null);
     setDetail("");
@@ -40,7 +40,7 @@ export default function AdminMembers() {
 
   function restore() {
     if (!restoring || !restoreReason.trim()) return;
-    update(restoring.id, { status: "active", suspendReason: undefined });
+    update(restoring.id, { status: "active", suspensionReason: undefined });
     toast.show(`${restoring.name} 님을 복구했어요. 바로 로그인할 수 있어요.`, "mint");
     setRestoring(null);
     setRestoreReason("");
@@ -78,7 +78,7 @@ export default function AdminMembers() {
                 <tr className="border-b border-line">
                   <th className="pb-2 font-medium">회원</th>
                   <th className="pb-2 font-medium">가입일</th>
-                  <th className="pb-2 text-right font-medium">만든 강연</th>
+                  <th className="pb-2 text-right font-medium">참여 강연</th>
                   <th className="pb-2 text-right font-medium">질문</th>
                   <th className="pb-2 pl-4 font-medium">상태</th>
                   <th className="pb-2" />
@@ -97,14 +97,14 @@ export default function AdminMembers() {
                       </div>
                     </td>
                     <td className="py-3 text-ink/70">{m.joined}</td>
-                    <td className="py-3 text-right">{m.lectures}</td>
-                    <td className="py-3 text-right">{m.questions}</td>
+                    <td className="py-3 text-right">{m.joinedCount}</td>
+                    <td className="py-3 text-right">{m.questionCount}</td>
                     <td className="py-3 pl-4">
                       <Pill className="bg-paper">
                         <Dot className={statusDot[m.status]} />
                         {statusLabel[m.status]}
                       </Pill>
-                      {m.suspendReason && m.status === "suspended" && <p className="mt-1 max-w-56 text-xs text-muted">{m.suspendReason}</p>}
+                      {m.suspensionReason && m.status === "suspended" && <p className="mt-1 max-w-56 text-xs text-muted">{m.suspensionReason}</p>}
                       {m.status === "unverified" && <p className="mt-1 text-xs text-muted">이메일 인증 코드를 아직 입력하지 않았어요</p>}
                     </td>
                     <td className="py-3 text-right">
@@ -127,7 +127,7 @@ export default function AdminMembers() {
       </Panel>
 
       <Modal open={!!target} onClose={() => setTarget(null)} title={`${target?.name} 님을 정지할까요?`}>
-        <p className="text-sm leading-relaxed text-muted">정지된 회원은 로그인할 수 없고, 진행 중인 강연은 그대로 유지돼요. 사유는 회원에게 안내돼요.</p>
+        <p className="text-sm leading-relaxed text-muted">정지된 회원은 로그인할 수 없어요. 청중으로 참여 중인 강연에서는 바로 나가지고, 직접 진행 중인 강연이 있으면 강제 종료돼요.</p>
         <div className="mt-5 space-y-4">
           <Field label="정지 사유">
             <div className="flex flex-wrap gap-1.5">
@@ -158,7 +158,7 @@ export default function AdminMembers() {
       </Modal>
 
       <Modal open={!!restoring} onClose={() => setRestoring(null)} title={`${restoring?.name} 님을 복구할까요?`}>
-        {restoring?.suspendReason && <p className="rounded-2xl bg-white p-3.5 text-sm text-muted">정지 사유: {restoring.suspendReason}</p>}
+        {restoring?.suspensionReason && <p className="rounded-2xl bg-white p-3.5 text-sm text-muted">정지 사유: {restoring.suspensionReason}</p>}
         <div className="mt-4">
           <Field label="복구 사유">
             <textarea className={`${inputCls} h-24 resize-none`} value={restoreReason} onChange={(e) => setRestoreReason(e.target.value)} placeholder="예: 소명 확인, 오인 정지" autoFocus />

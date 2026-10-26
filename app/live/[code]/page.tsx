@@ -8,7 +8,7 @@ import { NoteModal } from "@/components/NoteModal";
 import { SourceChips } from "@/components/SourceChips";
 import { Button, Empty, RoundButton, Screen, Tabs, useToast } from "@/components/ui";
 import { DEMO } from "@/lib/demo";
-import { SESSION_CAPACITY, archiveHrefFor, cannedAnswers, demoClock, resolveCode, statusOf, liveAiQuestions, livePublicQuestions, type Lecture, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
+import { SESSION_CAPACITY, archiveHrefFor, cannedAnswers, discardedDrafts, demoClock, resolveCode, statusOf, liveAiQuestions, livePublicQuestions, type Lecture, type PublicQuestion, type Source, toneCycle } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 // 내 질문 진행: 근거를 찾는 중 → 답변을 작성하는 중 → (답변 작성 중 표시 → 확정) 또는 강연자에게 전달됨
@@ -22,6 +22,10 @@ type Mine = {
   feedback?: "up" | "down" | null;
   retracted?: boolean;
   streaming?: boolean;
+  // 확정 전 답변(answer.delta provisional). 폐기되거나 확정될 때까지 작성 중으로 보인다
+  provisional?: boolean;
+  // 작성 중 답변이 폐기돼 강연자에게 전달됨
+  discarded?: boolean;
 };
 
 const Q_MAX = 200;
@@ -44,7 +48,7 @@ export default function AudienceLive() {
   const goArchive = !needsEntry && !isGuest && endedOnEntry;
   useEffect(() => {
     if (needsEntry) router.replace(`/join?code=${code.toUpperCase()}`);
-    else if (goArchive && lecture) router.replace(archiveHrefFor(lecture.id, endedLectures));
+    else if (goArchive && lecture) router.replace(archiveHrefFor(lecture.id));
   }, [needsEntry, goArchive, code, lecture, endedLectures, router]);
 
   if (needsEntry || goArchive) return <Screen>{null}</Screen>;
@@ -169,7 +173,7 @@ function GuestEnded({ lecture, who }: { lecture: Lecture; who: string }) {
 // 질문 화면 (LIVE). 참여 중에 강연이 끝나면 회원은 이 화면에서 보관함 안내를 본다
 function Room({ lecture, who, isGuest, ended }: { lecture: Lecture; who: string; isGuest: boolean; ended: boolean }) {
   const toast = useToast();
-  const { memos, endedLectures } = useDemo();
+  const { memos } = useDemo();
   // 데모 질문은 트랜스포머 강연(l1)에만 있다
   const seeded = lecture.id === "l1";
   const [tab, setTab] = useState<"ask" | "board" | "mine">("ask");
@@ -254,14 +258,23 @@ function Room({ lecture, who, isGuest, ended }: { lecture: Lecture; who: string;
     setTab("mine");
 
     const hit = cannedAnswers.find((c) => c.keys.some((k) => t.toLowerCase().includes(k)));
+    const draft = !hit && discardedDrafts.find((c) => c.keys.some((k) => t.includes(k)));
+    const forward = () => setPublicQs((qs) => [...qs, { id, text: t, page: 26, likes: 0, status: "waiting", at: now(), mine: true, liked: false }]);
     setTimeout(() => update(id, { state: "writing" }), 1300);
     setTimeout(() => {
-      if (hit) {
+      if (draft) {
+        // answer.delta로 작성 중 표시를 하다가 answer.discarded가 오면 글자를 지우고 전달됨으로 바꾼다
+        update(id, { state: "ai", answer: draft.draft, feedback: null, streaming: true, provisional: true });
+        setTimeout(() => {
+          update(id, { state: "forwarded", answer: undefined, streaming: false, provisional: false, discarded: true });
+          forward();
+        }, 1600);
+      } else if (hit) {
         update(id, { state: "ai", answer: hit.answer, sources: hit.sources, feedback: null, streaming: true });
       } else {
         // 근거가 부족하면 답변 대신 강연자에게 전달한다 (F4-5)
         update(id, { state: "forwarded" });
-        setPublicQs((qs) => [...qs, { id, text: t, page: 26, likes: 0, status: "waiting", at: now(), mine: true, liked: false }]);
+        forward();
       }
     }, 2600);
   }
@@ -312,7 +325,7 @@ function Room({ lecture, who, isGuest, ended }: { lecture: Lecture; who: string;
             <div className="min-w-0 flex-1">
               <p className="font-bold">강연이 끝났어요. 질문과 요약 노트는 내 보관함에서 볼 수 있어요</p>
             </div>
-            <Button size="sm" variant="white" href={archiveHrefFor(lecture.id, endedLectures)}>
+            <Button size="sm" variant="white" href={archiveHrefFor(lecture.id)}>
               내 보관함에서 보기
             </Button>
           </div>
@@ -448,14 +461,14 @@ function MyQuestion({ q, pub, onUpdate }: { q: Mine; pub?: PublicQuestion; onUpd
           <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold">
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[10px] text-white">✦</span>
             AI 답변 · 나에게만 보여요
-            {q.streaming && (
+            {(q.streaming || q.provisional) && (
               <span className="ml-auto flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 font-semibold text-ink/60">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink/60" /> 작성 중
               </span>
             )}
           </p>
           <p className="text-[15px] leading-relaxed">{q.streaming ? <StreamText text={q.answer ?? ""} onDone={() => onUpdate({ streaming: false })} /> : q.answer}</p>
-          {!q.streaming && (
+          {!q.streaming && !q.provisional && (
             <>
               <SourceChips sources={q.sources ?? []} />
               <div className="mt-3 flex items-center gap-1.5 border-t border-ink/10 pt-3">
@@ -482,6 +495,7 @@ function MyQuestion({ q, pub, onUpdate }: { q: Mine; pub?: PublicQuestion; onUpd
           <span className="inline-flex items-center gap-1 rounded-full bg-honey/35 px-3 py-1.5 text-xs font-semibold">📮 강연자에게 전달됨</span>
           {pub?.status === "done" && <span className="inline-flex items-center gap-1 rounded-full bg-mint/25 px-3 py-1.5 text-xs font-semibold">✓ 답변 완료</span>}
           <span className="text-xs text-muted">공감 {pub?.likes ?? 0}</span>
+          {q.discarded && <p className="w-full text-xs text-muted">작성 중이던 AI 답변은 근거가 부족해 지웠어요.</p>}
         </div>
       )}
     </div>

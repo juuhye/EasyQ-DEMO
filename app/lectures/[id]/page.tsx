@@ -11,7 +11,10 @@ import { FileStatePill, MAX_MB, SttConsentModal, validateDeck } from "@/componen
 import { findLecture, statusOf, type FileState, type Lecture } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
-const stages = ["업로드", "텍스트 추출 · 청킹", "임베딩 · 인덱싱", "용어 사전 생성"];
+const stages = ["업로드", "텍스트 추출 · 청킹", "임베딩 · 색인", "용어 추출"];
+// 전문용어 사전: 최대 100개, 용어당 1~40자 (API-25)
+const TERMS_MAX = 100;
+const TERM_LEN = 40;
 
 export default function LectureDetail() {
   const { id } = useParams<{ id: string }>();
@@ -191,13 +194,16 @@ export default function LectureDetail() {
                     <Icon name="alert" size={16} /> 처리에 실패했어요
                   </p>
                   <p className="mt-1 text-sm text-muted">{file.failReason}</p>
-                  <p className="mt-1 text-sm text-muted">다시 시도해도 안 되면 다른 파일로 교체해 주세요. 교체하면 처음부터 다시 처리해요.</p>
+                  <p className="mt-1 text-sm text-muted">{file.retryable ? "다시 시도해도 안 되면 파일을 교체해 주세요." : "같은 파일로는 처리할 수 없어요. 파일을 교체해 주세요."} 교체하면 처음부터 다시 처리해요.</p>
                   <div className="mt-3 flex gap-2">
-                    <Button size="sm" icon="undo" onClick={() => start(file)}>
-                      다시 시도
-                    </Button>
+                    {/* 다시 시도는 일시적인 실패(retryable)일 때만 */}
+                    {file.retryable && (
+                      <Button size="sm" icon="undo" onClick={() => start(file)}>
+                        다시 시도
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" icon="upload" onClick={() => inputRef.current?.click()}>
-                      다른 파일로 교체
+                      파일 교체
                     </Button>
                   </div>
                 </div>
@@ -227,17 +233,17 @@ export default function LectureDetail() {
               onSubmit={(e) => {
                 e.preventDefault();
                 const v = newTerm.trim();
-                if (v && !terms.includes(v)) setTerms((ts) => [...ts, v]);
+                if (v && v.length <= TERM_LEN && terms.length < TERMS_MAX && !terms.includes(v)) setTerms((ts) => [...ts, v]);
                 setNewTerm("");
               }}
               className="mt-3 flex gap-2 border-t border-line pt-3"
             >
-              <input className={`${inputCls} min-w-0 flex-1 !py-2`} placeholder="용어 직접 추가" value={newTerm} onChange={(e) => setNewTerm(e.target.value)} />
-              <Button size="sm" variant="soft" icon="plus" type="submit" className="!h-auto">
+              <input className={`${inputCls} min-w-0 flex-1 !py-2`} placeholder="용어 직접 추가 (40자 이내)" value={newTerm} onChange={(e) => setNewTerm(e.target.value)} maxLength={TERM_LEN} />
+              <Button size="sm" variant="soft" icon="plus" type="submit" className="!h-auto" disabled={terms.length >= TERMS_MAX}>
                 추가
               </Button>
             </form>
-            <p className="mt-2 text-right text-xs text-muted">{terms.length} / 1,000개</p>
+            <p className="mt-2 text-right text-xs text-muted">{terms.length} / {TERMS_MAX}개 · 강연을 시작하면 고칠 수 없어요</p>
           </div>
         </Step>
 
@@ -284,17 +290,31 @@ export default function LectureDetail() {
         <div className="mt-6 flex gap-2">
           {/* 처리 실패는 기다려도 끝나지 않으니 다시 시도를 권한다 */}
           {file?.state === "failed" ? (
-            <Button
-              variant="soft"
-              className="flex-1"
-              icon="undo"
-              onClick={() => {
-                setWarn(false);
-                start(file);
-              }}
-            >
-              다시 시도
-            </Button>
+            file.retryable ? (
+              <Button
+                variant="soft"
+                className="flex-1"
+                icon="undo"
+                onClick={() => {
+                  setWarn(false);
+                  start(file);
+                }}
+              >
+                다시 시도
+              </Button>
+            ) : (
+              <Button
+                variant="soft"
+                className="flex-1"
+                icon="upload"
+                onClick={() => {
+                  setWarn(false);
+                  inputRef.current?.click();
+                }}
+              >
+                파일 교체
+              </Button>
+            )
           ) : (
             <Button variant="soft" className="flex-1" onClick={() => setWarn(false)}>
               기다릴게요

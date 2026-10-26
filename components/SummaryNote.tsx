@@ -1,7 +1,12 @@
 import { Sticker } from "./Brand";
-import { type ArchiveItem, type Tone, tones } from "@/lib/mock";
+import { type SummaryNoteData, type Tone, tones } from "@/lib/mock";
 
-export function SummaryNote({ note, tone }: { note: NonNullable<ArchiveItem["note"]>; tone: Tone }) {
+// 요약 노트 4구역: 한 줄 요약 · 핵심 개념 · 강조한 점 · 키워드 (JSON 필드와 1:1)
+export function SummaryNote({ note, tone }: { note: SummaryNoteData; tone: Tone }) {
+  const blocks = [
+    { title: "핵심 개념", points: note.concepts },
+    { title: "강조한 점", points: note.emphasis },
+  ];
   return (
     <div className="space-y-3">
       <div className="relative rounded-[26px] p-5" style={{ backgroundColor: tones[tone].hex }}>
@@ -11,7 +16,7 @@ export function SummaryNote({ note, tone }: { note: NonNullable<ArchiveItem["not
           📝
         </Sticker>
       </div>
-      {note.sections.map((s) => (
+      {blocks.map((s) => (
         <div key={s.title} className="rounded-[24px] bg-white p-5">
           <p className="mb-3 font-bold">{s.title}</p>
           <ul className="space-y-2.5">
@@ -24,12 +29,15 @@ export function SummaryNote({ note, tone }: { note: NonNullable<ArchiveItem["not
           </ul>
         </div>
       ))}
-      <div className="flex flex-wrap gap-1.5">
-        {note.keywords.map((k) => (
-          <span key={k} className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold">
-            #{k}
-          </span>
-        ))}
+      <div className="rounded-[24px] bg-white p-5">
+        <p className="mb-3 font-bold">키워드</p>
+        <div className="flex flex-wrap gap-1.5">
+          {note.keywords.map((k) => (
+            <span key={k} className="rounded-full bg-sand px-3 py-1.5 text-sm font-semibold">
+              #{k}
+            </span>
+          ))}
+        </div>
       </div>
       <p className="pt-1 text-xs text-muted">강연 발화와 교안을 바탕으로 AI가 강연 종료 후 한 번 만들었어요.</p>
     </div>

@@ -49,7 +49,7 @@ export default function Signup() {
 
         <div className="mt-8 space-y-4">
           <Field label="이름 (표시명)">
-            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 심주혜" />
+            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 심주혜" maxLength={50} />
           </Field>
           <Field label="이메일" error={emailError}>
             <input

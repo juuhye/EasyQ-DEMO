@@ -57,7 +57,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto space-y-3">
           <div className="rounded-[20px] bg-white p-3.5 text-xs">
             <p className="text-muted">현재 서빙 모델</p>
-            <p className="mt-0.5 text-[15px] font-bold">{servingVersion === LLM_ONLY ? "LLM_ONLY" : `판정 모델 ${servingVersion}`}</p>
+            <p className="mt-0.5 text-[15px] font-bold">{servingVersion === LLM_ONLY ? "LLM_ONLY" : servingVersion}</p>
           </div>
           <button
             onClick={() => {

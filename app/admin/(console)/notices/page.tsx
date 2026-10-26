@@ -81,11 +81,11 @@ export default function AdminNotices() {
         <div className="mt-4 grid animate-rise gap-3 lg:grid-cols-[1fr_1.2fr]">
           <Panel title={editing ? "공지 수정" : "새 공지"}>
             <form onSubmit={post} className="space-y-4">
-              <Field label="제목">
-                <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 11/3 서버 점검 안내" />
+              <Field label="제목 (100자 이내)">
+                <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 11/3 서버 점검 안내" maxLength={100} />
               </Field>
-              <Field label="내용">
-                <textarea className={`${inputCls} h-36 resize-none`} value={body} onChange={(e) => setBody(e.target.value)} placeholder="회원에게 보일 내용을 적어 주세요" />
+              <Field label="내용 (2,000자 이내)">
+                <textarea className={`${inputCls} h-36 resize-none`} value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} placeholder="회원에게 보일 내용을 적어 주세요" />
               </Field>
               <div className="flex gap-2">
                 {editing && (
@@ -147,7 +147,7 @@ export default function AdminNotices() {
                     </div>
                   ) : (
                     <div className="mt-3 space-y-2">
-                      <textarea className={`${inputCls} h-28 resize-none`} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="답변을 적어 주세요" />
+                      <textarea className={`${inputCls} h-28 resize-none`} value={reply} onChange={(e) => setReply(e.target.value)} maxLength={2000} placeholder="답변을 적어 주세요" />
                       <div className="flex justify-end">
                         <Button size="sm" icon="send" disabled={!reply.trim()} onClick={() => answer(i.id)}>
                           답변 보내기

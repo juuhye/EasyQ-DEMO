@@ -25,11 +25,11 @@ export default function AdminSessions() {
     setTarget(null);
   }
 
-  // 평가용 강연 표시는 시작 전에만 바꿀 수 있다
-  function toggleEval(target: AdminSession) {
-    if (target.status !== "ready") return;
-    setList((l) => l.map((s) => (s.id === target.id ? { ...s, evaluation: !s.evaluation } : s)));
-    toast.show(target.evaluation ? "평가용 표시를 껐어요" : "평가용 강연으로 표시했어요. 처리 로그를 평가셋으로 따로 모아요", "mint");
+  // 평가용 강연 표시는 시작 전에만 켤 수 있고, 켜면 끌 수 없다
+  function markEval(target: AdminSession) {
+    if (target.status !== "ready" || target.evaluation) return;
+    setList((l) => l.map((s) => (s.id === target.id ? { ...s, evaluation: true } : s)));
+    toast.show("평가용 강연으로 표시했어요. 처리 로그를 평가셋으로 따로 모아요", "mint");
   }
 
   return (
@@ -63,7 +63,9 @@ export default function AdminSessions() {
                   <th className="pb-2 text-right font-medium">청중</th>
                   <th className="pb-2 text-right font-medium">질문</th>
                   <th className="pb-2 pl-4 font-medium">상태</th>
-                  <th className="pb-2 pl-4 font-medium">평가용</th>
+                  <th className="pb-2 pl-4 font-medium">
+                    평가용 <span className="font-normal">(시작 전만 · 켜면 끌 수 없음)</span>
+                  </th>
                   <th className="pb-2" />
                 </tr>
               </thead>
@@ -91,16 +93,16 @@ export default function AdminSessions() {
                         role="switch"
                         aria-checked={!!s.evaluation}
                         aria-label={`${s.title} 평가용 강연`}
-                        disabled={s.status !== "ready"}
-                        title={s.status !== "ready" ? "시작 전에만 바꿀 수 있어요" : undefined}
-                        onClick={() => toggleEval(s)}
+                        disabled={s.status !== "ready" || !!s.evaluation}
+                        title={s.evaluation ? "켜면 끌 수 없어요" : s.status !== "ready" ? "시작 전에만 켤 수 있어요" : undefined}
+                        onClick={() => markEval(s)}
                         className={`flex h-7 w-12 items-center rounded-full p-1 transition-colors disabled:opacity-35 ${s.evaluation ? "bg-ink" : "bg-ink/15"}`}
                       >
                         <span className={`h-5 w-5 rounded-full bg-white transition-transform ${s.evaluation ? "translate-x-5" : ""}`} />
                       </button>
                     </td>
                     <td className="py-3 text-right">
-                      {s.status !== "ended" && (
+                      {s.status === "live" && (
                         <Button size="sm" variant="ghost" onClick={() => setTarget(s)}>
                           강제 종료
                         </Button>

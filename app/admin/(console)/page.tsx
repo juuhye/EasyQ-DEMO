@@ -7,8 +7,9 @@ import { Progress, Tabs } from "@/components/ui";
 import { costBudget, dailyMetrics, latencyTarget, opsMetrics, sessionMetrics, type Period } from "@/lib/admin";
 
 const won = (n: number) => `${n.toLocaleString()}원`;
-// 표본이 없는 응답 시간은 "–"
+// 표본이 없으면 0이 아니라 "–"
 const sec = (n: number | null) => (n === null ? "–" : `${n}s`);
+const pair = (a: number | null, b: number | null) => `${sec(a)} · ${sec(b)}`;
 
 export default function AdminDashboard() {
   const [period, setPeriod] = useState<Period>("week");
@@ -51,23 +52,41 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Stat label="AI 처리율" value={`${m.aiRate}%`} sub={`질문 ${m.questions.toLocaleString()}건 중 · 목표 50% 이상`} tone="#3dbf6e" />
-        <Stat label="강연자 이관 비율" value={`${m.forwardRate}%`} sub={`${Math.round((m.questions * m.forwardRate) / 100).toLocaleString()}건 이관`} tone="#f4625a" />
+      {/* 운영 지표 (F9-7). 오답 즉답률 · 정확도는 모델 화면의 평가 결과에만 둔다 */}
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="질문 수" value={m.questions.toLocaleString()} sub={`강연 ${m.sessions}회`} />
+        <Stat label="AI 답변 비중" value={`${m.aiShare}%`} sub="목표 50% 이상" tone="#3dbf6e" />
+        <Stat label="이관 비율" value={`${m.forwardRate}%`} sub={`${Math.round((m.questions * m.forwardRate) / 100).toLocaleString()}건 강연자에게 전달`} tone="#f4625a" />
         <Stat
-          label="API 비용"
+          label="외부 호출 · 추정 비용"
           value={won(m.cost)}
-          sub={`강연 1회 평균 ${won(perLecture)} · 목표 ${won(costBudget.perLectureTarget)}`}
+          sub={`호출 ${m.externalCalls.toLocaleString()}회 · 강연 1회 평균 ${won(perLecture)}`}
           warn={perLecture > costBudget.perLectureTarget}
           tone="#ffc830"
         />
       </div>
 
-      {/* 응답 시간 3종 (p50). 오답 즉답률 · 정확도는 모델 화면의 평가 결과에만 둔다 */}
-      <div className="mt-3 grid grid-cols-3 gap-3">
-        <Stat label="진행 상태 표시" value={sec(m.latency.status)} sub="질문 제출 → 첫 진행 상태" />
-        <Stat label="첫 글자" value={sec(m.latency.first)} sub="AI 답변 첫 글자까지" />
-        <Stat label="최종 확정" value={sec(m.latency.final)} sub={`답변 확정 · 전달까지 · 목표 ${latencyTarget.final}초`} warn={m.latency.final !== null && m.latency.final > latencyTarget.final} />
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat
+          label="진행 상태 표시 최댓값 · p95"
+          value={pair(m.latency.progress.max, m.latency.progress.p95)}
+          sub={`질문 제출 → 첫 진행 상태 · 목표 최댓값 ${latencyTarget.progressMax}초 이하`}
+          warn={(m.latency.progress.max ?? 0) > latencyTarget.progressMax}
+        />
+        <Stat label="첫 글자 p50" value={sec(m.latency.first.p50)} sub={`AI 답변 첫 글자까지 · 목표 ${latencyTarget.firstP50}초 이하`} warn={(m.latency.first.p50 ?? 0) > latencyTarget.firstP50} />
+        <Stat
+          label="최종 확정 p50 · p95"
+          value={pair(m.latency.final.p50, m.latency.final.p95)}
+          sub={`답변 확정 · 전달까지 · 목표 p50 ≤ ${latencyTarget.finalP50}초 · p95 ≤ ${latencyTarget.finalP95}초`}
+          warn={(m.latency.final.p50 ?? 0) > latencyTarget.finalP50 || (m.latency.final.p95 ?? 0) > latencyTarget.finalP95}
+        />
+        <Stat label="발화 반영 지연 p95" value={sec(m.latency.speechLag)} sub={`목표 ${latencyTarget.speechLag}초 이내`} warn={(m.latency.speechLag ?? 0) > latencyTarget.speechLag} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <Stat label="대체 판정 수" value={m.fallback.toLocaleString()} sub="판정 모델 대신 Sonnet 단독으로 판정" />
+        <Stat label="철회 · 청중 평가 수" value={`${m.retractions} · ${m.ratings}`} sub="강연자 철회 · 도움됨 / 부족해요" />
+        <Stat label="실패 작업" value={m.failedJobs} sub="교안 처리 · 요약 노트 · 임베딩" warn={m.failedJobs > 0} />
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-[1.4fr_1fr]">
@@ -118,17 +137,17 @@ export default function AdminDashboard() {
         </Panel>
       </div>
 
-      <Panel title="강연별 지표" desc="응답 시간은 p50 · 표본이 없으면 – 로 표시해요" className="mt-3">
+      <Panel title="강연별 지표" desc="표본이 없으면 – 로 표시해요" className="mt-3">
         <div className="-mx-5 overflow-x-auto px-5">
-          <table className="w-full min-w-[680px] text-left text-sm">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="text-xs text-muted">
               <tr className="border-b border-line">
                 <th className="pb-2 font-medium">강연</th>
                 <th className="pb-2 text-right font-medium">질문</th>
-                <th className="pb-2 pl-4 font-medium">AI 처리율</th>
-                <th className="pb-2 text-right font-medium">진행 상태</th>
-                <th className="pb-2 text-right font-medium">첫 글자</th>
-                <th className="pb-2 text-right font-medium">최종 확정</th>
+                <th className="pb-2 pl-4 font-medium">AI 답변 비중</th>
+                <th className="pb-2 text-right font-medium">진행 상태 p95</th>
+                <th className="pb-2 text-right font-medium">첫 글자 p50</th>
+                <th className="pb-2 text-right font-medium">최종 확정 p50</th>
                 <th className="pb-2 text-right font-medium">비용</th>
               </tr>
             </thead>
@@ -139,13 +158,13 @@ export default function AdminDashboard() {
                   <td className="py-3 text-right">{s.questions}</td>
                   <td className="w-40 py-3 pl-4">
                     <div className="flex items-center gap-2">
-                      <Progress value={s.aiRate} className="flex-1" color={s.aiRate < 50 ? "bg-coral" : "bg-mint"} />
-                      <span className={`w-9 text-right text-xs font-semibold ${s.aiRate < 50 ? "text-coral-ink" : ""}`}>{s.aiRate}%</span>
+                      <Progress value={s.aiShare} className="flex-1" color={s.aiShare < 50 ? "bg-coral" : "bg-mint"} />
+                      <span className={`w-9 text-right text-xs font-semibold ${s.aiShare < 50 ? "text-coral-ink" : ""}`}>{s.aiShare}%</span>
                     </div>
                   </td>
-                  <td className="py-3 text-right">{sec(s.latency.status)}</td>
-                  <td className={`py-3 text-right ${s.latency.first === null ? "text-muted" : ""}`}>{sec(s.latency.first)}</td>
-                  <td className={`py-3 text-right ${s.latency.final !== null && s.latency.final > latencyTarget.final ? "font-semibold text-coral-ink" : ""}`}>{sec(s.latency.final)}</td>
+                  <td className="py-3 text-right">{sec(s.progressP95)}</td>
+                  <td className={`py-3 text-right ${s.firstP50 === null ? "text-muted" : ""}`}>{sec(s.firstP50)}</td>
+                  <td className={`py-3 text-right ${s.finalP50 !== null && s.finalP50 > latencyTarget.finalP50 ? "font-semibold text-coral-ink" : ""}`}>{sec(s.finalP50)}</td>
                   <td className={`py-3 text-right ${s.cost > costBudget.perLectureTarget ? "font-semibold text-coral-ink" : ""}`}>{won(s.cost)}</td>
                 </tr>
               ))}

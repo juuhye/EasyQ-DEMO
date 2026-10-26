@@ -5,11 +5,10 @@ import { useState } from "react";
 import { Folder } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Empty, Modal, PageTitle, RoundButton, Screen, inputCls, useToast } from "@/components/ui";
-import { archiveWith, type ArchiveItem } from "@/lib/mock";
+import { archive, type ArchiveItem } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 const paperStickers: Record<string, string[]> = {
-  r0: ["🤖", "🧠", "🔤"],
   r1: ["🖼️", "🎨", "🌫️"],
   r2: ["🧩", "📊", "🧮"],
   r3: ["🚀", "💡", "🗒️"],
@@ -20,12 +19,12 @@ const paperStickers: Record<string, string[]> = {
 const noteText = { ready: "요약 노트 있음", generating: "요약 노트 만드는 중", failed: "요약 노트 없음", none: "요약 노트 없음" };
 
 export default function Archive() {
-  const { deletedArchives, endedLectures } = useDemo();
+  const { deletedArchives } = useDemo();
   const [q, setQ] = useState("");
   const [searching, setSearching] = useState(false);
   const [removing, setRemoving] = useState<ArchiveItem | null>(null);
   const toast = useToast();
-  const items = archiveWith(endedLectures).filter((a) => !deletedArchives.includes(a.id)).filter((a) => !q || a.title.includes(q) || a.speaker.includes(q));
+  const items = archive.filter((a) => !deletedArchives.includes(a.id)).filter((a) => !q || a.title.includes(q) || a.speaker.includes(q));
 
   return (
     <Screen nav>

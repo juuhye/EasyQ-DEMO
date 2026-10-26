@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Avatar, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { RoundButton, Screen } from "@/components/ui";
-import { archiveWith, lectures, statusOf, tones } from "@/lib/mock";
+import { archive, lectures, statusOf, tones } from "@/lib/mock";
 import { useDemo } from "@/lib/store";
 
 export default function Home() {
@@ -12,7 +12,7 @@ export default function Home() {
   const live = lectures.find((l) => l.status === "live")!;
   const ready = lectures.find((l) => l.status === "ready")!;
   // 보관함 화면과 같은 목록에서 센다. 홈에는 최근 3개만 보여준다
-  const myArchive = archiveWith(endedLectures).filter((a) => !deletedArchives.includes(a.id));
+  const myArchive = archive.filter((a) => !deletedArchives.includes(a.id));
   const recent = myArchive.slice(0, 3);
   const notes = myArchive.filter((a) => a.summary === "ready").length;
 

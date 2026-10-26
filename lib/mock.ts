@@ -38,10 +38,15 @@ export type Lecture = {
   code: string;
   tone: Tone;
   emoji: string;
-  file: { name: string; pages: number; chunks: number; state: FileState; failReason?: string } | null;
+  // retryable: 실패 원인이 일시적이라 같은 파일로 다시 시도할 수 있음. 아니면 파일 교체만
+  file: { name: string; pages: number; chunks: number; state: FileState; failReason?: string; retryable?: boolean } | null;
   audience: number;
   glossary: string[];
   endReason?: EndReason;
+  // 강연자 표시명. 없으면 로그인한 데모 회원(주혜)이 연 강연
+  host?: string;
+  // 회원 · 게스트 참가자 수 (리포트 통계)
+  participants?: { members: number; guests: number };
 };
 
 // 강연 종료 사유. 강연자가 직접 끝내거나, 시작 후 12시간이 지나 자동으로 끝나거나, 관리자가 강제로 끝낸다
@@ -61,7 +66,8 @@ export const lectures: Lecture[] = [
     tone: "ocean",
     emoji: "🤖",
     file: { name: "07_transformer.pdf", pages: 42, chunks: 186, state: "done" },
-    audience: 128,
+    audience: 42,
+    participants: { members: 25, guests: 17 },
     glossary: ["Transformer", "Self-Attention", "Query", "Key", "Value", "Multi-Head", "Positional Encoding", "Encoder", "Decoder", "Softmax", "Layer Norm", "Residual"],
   },
   {
@@ -74,7 +80,7 @@ export const lectures: Lecture[] = [
     code: "DB4M8",
     tone: "mint",
     emoji: "🗄️",
-    file: { name: "db_design_special.pptx", pages: 36, chunks: 0, state: "failed", failReason: "임베딩 API 응답이 지연돼 인덱싱을 마치지 못했어요." },
+    file: { name: "db_design_special.pptx", pages: 36, chunks: 0, state: "failed", retryable: true, failReason: "임베딩 API 응답이 지연돼 인덱싱을 마치지 못했어요." },
     audience: 0,
     glossary: ["정규화", "Normal Form", "Index", "B-Tree"],
   },
@@ -89,7 +95,8 @@ export const lectures: Lecture[] = [
     tone: "grape",
     emoji: "⚛️",
     file: { name: "06_react_state.pdf", pages: 31, chunks: 142, state: "done" },
-    audience: 94,
+    audience: 44,
+    participants: { members: 27, guests: 17 },
     glossary: ["useState", "useReducer", "Context", "Props", "Re-render"],
     endReason: "manual",
   },
@@ -104,7 +111,8 @@ export const lectures: Lecture[] = [
     tone: "honey",
     emoji: "🌱",
     file: { name: "opensource_seminar.pdf", pages: 24, chunks: 97, state: "done" },
-    audience: 61,
+    audience: 38,
+    participants: { members: 22, guests: 16 },
     glossary: ["Pull Request", "Issue", "License", "Fork"],
     endReason: "auto",
   },
@@ -119,7 +127,8 @@ export const lectures: Lecture[] = [
     tone: "coral",
     emoji: "🌐",
     file: { name: "tcp_congestion.pdf", pages: 22, chunks: 88, state: "done" },
-    audience: 57,
+    audience: 41,
+    participants: { members: 24, guests: 17 },
     glossary: ["TCP", "Slow Start", "cwnd", "AIMD"],
     endReason: "admin",
   },
@@ -137,7 +146,7 @@ export function demoClock() {
 }
 
 // 세션 정원 (N-08 동시 접속 목표)
-export const SESSION_CAPACITY = 300;
+export const SESSION_CAPACITY = 50;
 
 // 입장 코드로 강연을 찾는다. 재발급된 강연의 이전 코드는 expired로 돌려준다
 // 다른 회원의 강연. 내 강의 목록에는 없고 청중 입장 코드로만 찾는다 (종료 예시 코드 SU3M7)
@@ -153,9 +162,27 @@ export const otherLectures: Lecture[] = [
     tone: "leaf",
     emoji: "🚀",
     file: { name: "mvp_validation.pdf", pages: 26, chunks: 104, state: "done" },
-    audience: 73,
+    audience: 46,
+    participants: { members: 29, guests: 17 },
     glossary: [],
     endReason: "auto",
+    host: "이하준",
+  },
+  {
+    // 정원(50명)이 가득 찬 진행 중 강연 (SESSION_FULL 안내 확인용)
+    id: "s2",
+    title: "경영학원론 · 마케팅 믹스",
+    date: "2026.10.22 (목)",
+    time: "13:30",
+    desc: "4P와 STP",
+    status: "live",
+    code: "MK4P2",
+    tone: "coral",
+    emoji: "📈",
+    file: { name: "marketing_mix.pdf", pages: 30, chunks: 120, state: "done" },
+    audience: 50,
+    glossary: [],
+    host: "오세훈",
   },
 ];
 
@@ -301,6 +328,11 @@ export const initialTranscript = [
 ];
 
 // 청중이 새 질문을 냈을 때 데모 판정: 교안 용어가 들어 있으면 AI 답변, 아니면 강연자에게 이관
+// 판정은 통과했지만 답변을 쓰다가 근거가 부족해 폐기되는 질문 (answer.discarded). 작성 중이던 글자를 지우고 강연자에게 전달한다
+export const discardedDrafts: { keys: string[]; draft: string }[] = [
+  { keys: ["시험", "범위", "과제"], draft: "이번 강의에서 다룬 트랜스포머 구조는 교안 기준으로" },
+];
+
 export const cannedAnswers: { keys: string[]; answer: string; sources: Source[] }[] = [
   {
     keys: ["마스킹", "mask", "마스크"],
@@ -333,12 +365,12 @@ export const cannedAnswers: { keys: string[]; answer: string; sources: Source[] 
 // 웹 프로그래밍 6주차(l3) 리포트 요약 노트
 export const reactStateNote = {
   headline: "React 상태를 어디에 둘지 고르는 기준: 지역 상태, 리듀서, Context",
-  sections: [
-    { title: "핵심 개념", points: ["지역 상태는 useState로 두고, 여러 컴포넌트가 쓰면 가까운 부모로 끌어올린다", "상태 변경 로직이 복잡하면 useReducer로 액션별 처리를 한곳에 모은다 (교안 p.12)", "Context 값이 바뀌면 구독하는 컴포넌트가 모두 리렌더된다 (교안 p.18)"] },
-    { title: "강연에서 강조한 점", points: ["setState는 바로 반영되지 않고 배치로 업데이트된다", "자주 바뀌는 값과 드물게 바뀌는 값은 Context를 나눠 담는다", "상태는 불변으로 다뤄야 변경을 감지할 수 있다"] },
-  ],
+  concepts: ["지역 상태는 useState로 두고, 여러 컴포넌트가 쓰면 가까운 부모로 끌어올린다", "상태 변경 로직이 복잡하면 useReducer로 액션별 처리를 한곳에 모은다 (교안 p.12)", "Context 값이 바뀌면 구독하는 컴포넌트가 모두 리렌더된다 (교안 p.18)"],
+  emphasis: ["setState는 바로 반영되지 않고 배치로 업데이트된다", "자주 바뀌는 값과 드물게 바뀌는 값은 Context를 나눠 담는다", "상태는 불변으로 다뤄야 변경을 감지할 수 있다"],
   keywords: ["useState", "useReducer", "Context"],
 };
+
+export type SummaryNoteData = { headline: string; concepts: string[]; emphasis: string[]; keywords: string[] };
 
 // ── 청중: 내 보관함 ───────────────────────────────
 
@@ -352,7 +384,8 @@ export type ArchiveItem = {
   tone: Tone;
   emoji: string;
   summary: "ready" | "generating" | "failed" | "none";
-  note?: { headline: string; sections: { title: string; points: string[] }[]; keywords: string[] };
+  // 요약 노트 4구역 = JSON 필드와 1:1 (한 줄 요약 · 핵심 개념 · 강조한 점 · 키워드)
+  note?: SummaryNoteData;
   myQuestions: { id: string; text: string; kind: "ai" | "forwarded"; answer?: string; sources?: Source[]; status?: "waiting" | "done"; retracted?: boolean }[];
   // 강연자에게 전달된 전체 질문. liked는 내가 공감한 질문, memo는 강연 중 남긴 내 필기
   questions: { id: string; text: string; likes: number; status: "waiting" | "done"; liked: boolean; memo?: string }[];
@@ -369,10 +402,8 @@ export const archive: ArchiveItem[] = [
     summary: "ready",
     note: {
       headline: "노이즈를 조금씩 지우며 이미지를 만드는 확산 모델의 원리와 학습 방법",
-      sections: [
-        { title: "핵심 개념", points: ["Forward 과정: 이미지에 가우시안 노이즈를 T단계에 걸쳐 더한다", "Reverse 과정: 신경망이 각 단계의 노이즈를 예측해 제거한다", "U-Net이 노이즈 예측기로 주로 쓰인다 (교안 p.11)"] },
-        { title: "강연에서 강조한 점", points: ["GAN보다 학습이 안정적이지만 샘플링이 느리다", "DDIM으로 단계 수를 줄여 속도를 높일 수 있다", "텍스트 조건은 cross-attention으로 넣는다"] },
-      ],
+      concepts: ["Forward 과정: 이미지에 가우시안 노이즈를 T단계에 걸쳐 더한다", "Reverse 과정: 신경망이 각 단계의 노이즈를 예측해 제거한다", "U-Net이 노이즈 예측기로 주로 쓰인다 (교안 p.11)"],
+      emphasis: ["GAN보다 학습이 안정적이지만 샘플링이 느리다", "DDIM으로 단계 수를 줄여 속도를 높일 수 있다", "텍스트 조건은 cross-attention으로 넣는다"],
       keywords: ["DDPM", "U-Net", "Noise Schedule", "DDIM", "Classifier-free Guidance"],
     },
     myQuestions: [
@@ -398,10 +429,8 @@ export const archive: ArchiveItem[] = [
     summary: "ready",
     note: {
       headline: "부분 문제의 답을 저장해 다시 쓰는 동적 계획법의 두 가지 방식",
-      sections: [
-        { title: "핵심 개념", points: ["최적 부분 구조 + 중복 부분 문제가 있으면 DP를 쓴다", "Top-down(메모이제이션)과 Bottom-up(테이블) 두 방식", "점화식을 먼저 세우고 기저 사례를 정한다"] },
-        { title: "예제", points: ["피보나치 O(2ⁿ) → O(n)", "배낭 문제: dp[i][w] = max(포함, 미포함)", "LCS: 두 문자열 표를 채워 길이를 구한다"] },
-      ],
+      concepts: ["최적 부분 구조 + 중복 부분 문제가 있으면 DP를 쓴다", "Top-down(메모이제이션)과 Bottom-up(테이블) 두 방식", "점화식을 먼저 세우고 기저 사례를 정한다"],
+      emphasis: ["피보나치 O(2ⁿ) → O(n)", "배낭 문제: dp[i][w] = max(포함, 미포함)", "LCS: 두 문자열 표를 채워 길이를 구한다"],
       keywords: ["Memoization", "Tabulation", "Knapsack", "LCS"],
     },
     myQuestions: [
@@ -439,7 +468,8 @@ export const archive: ArchiveItem[] = [
     summary: "ready",
     note: {
       headline: "App Router의 폴더 기반 라우팅과 레이아웃 중첩",
-      sections: [{ title: "핵심 개념", points: ["폴더 = URL 경로, page.tsx가 화면", "layout.tsx는 하위 페이지에서 유지된다", "[id] 폴더로 동적 경로를 만든다"] }],
+      concepts: ["폴더 = URL 경로, page.tsx가 화면", "layout.tsx는 하위 페이지에서 유지된다", "[id] 폴더로 동적 경로를 만든다"],
+      emphasis: ["Server Component가 기본이고, 상호작용이 필요한 곳만 'use client'로 나눈다", "같은 레이아웃을 쓰는 페이지끼리는 이동해도 레이아웃이 다시 그려지지 않는다"],
       keywords: ["App Router", "Layout", "Dynamic Route"],
     },
     myQuestions: [],
@@ -459,7 +489,8 @@ export const archive: ArchiveItem[] = [
     summary: "ready",
     note: {
       headline: "키를 해시 함수로 바꿔 평균 O(1)에 찾는 해시 테이블과 충돌 처리",
-      sections: [{ title: "핵심 개념", points: ["해시 함수가 키를 버킷 번호로 바꾼다", "충돌은 체이닝 또는 개방 주소법으로 처리한다", "적재율이 높아지면 리해싱한다"] }],
+      concepts: ["해시 함수가 키를 버킷 번호로 바꾼다", "충돌은 체이닝 또는 개방 주소법으로 처리한다", "적재율이 높아지면 리해싱한다"],
+      emphasis: ["적재율이 높아지기 전에 리해싱 비용을 고려한다", "키 비교가 비싸면 해시값을 함께 저장해 비교를 줄인다"],
       keywords: ["Hash", "Chaining", "Open Addressing", "Load Factor"],
     },
     myQuestions: [
@@ -472,48 +503,23 @@ export const archive: ArchiveItem[] = [
 // 컴퓨터 네트워크 특강(l6) 리포트 요약 노트
 export const tcpNote = {
   headline: "패킷 손실을 신호로 전송량을 조절하는 TCP 혼잡 제어",
-  sections: [{ title: "핵심 개념", points: ["슬로 스타트: cwnd를 RTT마다 두 배로 늘린다", "임계값을 넘으면 혼잡 회피로 1씩 늘린다 (AIMD)", "손실이 감지되면 cwnd를 줄이고 다시 늘린다"] }],
+  concepts: ["슬로 스타트: cwnd를 RTT마다 두 배로 늘린다", "임계값을 넘으면 혼잡 회피로 1씩 늘린다 (AIMD)", "손실이 감지되면 cwnd를 줄이고 다시 늘린다"],
+  emphasis: ["패킷 손실을 혼잡의 신호로 본다", "대역폭이 큰 환경에서는 BBR 같은 다른 방식도 쓴다"],
   keywords: ["Slow Start", "cwnd", "AIMD"],
 };
 
-// 진행 중인 강연(l1)가 끝나면 청중 보관함에 생기는 기록
+// 인공지능 개론 7주차(l1) 리포트 요약 노트
 export const transformerNote = {
   headline: "단어끼리 서로를 바라보는 셀프 어텐션으로 RNN 없이 문맥을 읽는 트랜스포머",
-  sections: [
-    { title: "핵심 개념", points: ["Q · K 내적으로 관련도를 구하고 softmax 가중치로 V를 섞는다 (교안 p.12)", "√dₖ로 나눠 softmax 쏠림과 기울기 소실을 막는다", "멀티헤드로 여러 관계를 동시에 본다 (h = 8)"] },
-    { title: "구조", points: ["인코더 · 디코더 각각 6층, 층마다 Add & Norm", "디코더는 미래 토큰을 가리는 masked self-attention을 쓴다", "cross-attention: Query는 디코더, Key · Value는 인코더 출력"] },
-    { title: "청중이 많이 물은 것", points: ["포지셔널 인코딩: 고정(sin/cos) vs 학습형", "학습 시 병렬화가 가능한 이유 (teacher forcing)"] },
-  ],
+  concepts: ["Q · K 내적으로 관련도를 구하고 softmax 가중치로 V를 섞는다 (교안 p.12)", "√dₖ로 나눠 softmax 쏠림과 기울기 소실을 막는다", "멀티헤드로 여러 관계를 동시에 본다 (h = 8)"],
+  emphasis: ["인코더 · 디코더 각각 6층, 층마다 Add & Norm", "디코더는 미래 토큰을 가리는 masked self-attention을 쓴다", "cross-attention: Query는 디코더, Key · Value는 인코더 출력", "포지셔널 인코딩: 고정(sin/cos) vs 학습형", "학습 시 병렬화가 가능한 이유 (teacher forcing)"],
   keywords: ["Self-Attention", "Multi-Head", "Positional Encoding", "Masking", "Cross-Attention"],
 };
 
-const liveArchive: ArchiveItem = {
-  id: "r0",
-  lectureId: "l1",
-  title: lectures[0].title,
-  speaker: "주혜",
-  date: lectures[0].date.slice(0, 10),
-  tone: lectures[0].tone,
-  emoji: lectures[0].emoji,
-  // 강연이 막 끝나 요약 노트를 만드는 중. 상세 화면에서 잠시 뒤 완성된다
-  summary: "generating",
-  note: transformerNote,
-  myQuestions: [
-    // a2는 강연 중 강연자가 철회한 답변
-    ...liveAiQuestions.filter((q) => q.mine).map((q) => ({ id: q.id, text: q.text, kind: "ai" as const, answer: q.answer, sources: q.sources, retracted: q.id === "a2" })),
-    ...livePublicQuestions.filter((q) => q.mine).map((q) => ({ id: q.id, text: q.text, kind: "forwarded" as const, status: q.status })),
-  ],
-  questions: livePublicQuestions.map((q) => ({ id: q.id, text: q.text, likes: q.likes, status: q.status, liked: !!q.liked })),
-};
-
-// 종료된 강연을 반영한 보관함 목록
-export function archiveWith(endedLectures: string[]) {
-  return endedLectures.includes(lectures[0].id) ? [liveArchive, ...archive] : archive;
-}
-
-// 종료된 강연에 회원으로 들어오면 갈 곳: 그 강연의 보관함 상세, 없으면 보관함 목록
-export function archiveHrefFor(lectureId: string, endedLectures: string[]) {
-  const item = archiveWith(endedLectures).find((a) => a.lectureId === lectureId);
+// 종료된 강연에 회원으로 들어오면 갈 곳: 그 강연의 보관함 상세, 없으면 보관함 목록.
+// 본인이 연 강연은 보관함에 나오지 않는다 (내 강연에만)
+export function archiveHrefFor(lectureId: string) {
+  const item = archive.find((a) => a.lectureId === lectureId);
   return item ? `/archive/${item.id}` : "/archive";
 }
 
@@ -564,18 +570,16 @@ export function logStats(log: LogEntry[]) {
     questions: log.length,
     ai,
     forwarded: log.length - ai,
+    done: log.filter((q) => q.done).length,
     likes: log.reduce((s, q) => s + q.likes, 0),
     retracted: log.filter((q) => q.retracted).length,
   };
 }
 
-// 교안 페이지를 5쪽 단위로 묶은 질문 수
-export function pageHistogram(log: LogEntry[], pages: number) {
-  return Array.from({ length: Math.ceil(pages / 5) }, (_, i) => {
-    const from = i * 5 + 1;
-    const to = Math.min(pages, from + 4);
-    return { page: `${from}–${to}`, count: log.filter((q) => q.page && q.page >= from && q.page <= to).length };
-  });
+// 교안 페이지별 질문 수. 교안 페이지가 없는 질문은 "일반 질문"으로 묶는다
+export function pageCounts(log: LogEntry[]) {
+  const pages = [...new Set(log.map((q) => q.page))].sort((a, b) => (a ?? 9999) - (b ?? 9999));
+  return pages.map((page) => ({ page: page === null ? "일반 질문" : `p.${page}`, count: log.filter((q) => q.page === page).length }));
 }
 
 export const notices = [

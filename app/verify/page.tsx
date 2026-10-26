@@ -11,6 +11,8 @@ import { setDemo, useDemo } from "@/lib/store";
 
 const LENGTH = 6;
 const RESEND_SEC = 60;
+// 재발송은 시간당 5회까지 (API-02)
+const RESEND_MAX = 5;
 
 // useSearchParams는 Suspense 안에서만 쓸 수 있다
 export default function VerifyPage() {
@@ -29,6 +31,8 @@ function Verify() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [left, setLeft] = useState(RESEND_SEC);
+  const [resent, setResent] = useState(0);
+  const resendBlocked = resent >= RESEND_MAX;
   const inputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
@@ -51,6 +55,8 @@ function Verify() {
   }
 
   function resend() {
+    if (resendBlocked) return;
+    setResent((n) => n + 1);
     setLeft(RESEND_SEC);
     setCode("");
     setError("");
@@ -135,8 +141,8 @@ function Verify() {
 
         <div className="mt-5 flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm">
           <span className="text-muted">메일이 오지 않았나요?</span>
-          <button type="button" onClick={resend} disabled={left > 0} className="font-semibold underline underline-offset-4 disabled:text-muted disabled:no-underline">
-            {left > 0 ? `${left}초 후 다시 보내기` : "코드 다시 보내기"}
+          <button type="button" onClick={resend} disabled={left > 0 || resendBlocked} className="font-semibold underline underline-offset-4 disabled:text-muted disabled:no-underline">
+            {resendBlocked ? "1시간 뒤 다시 보낼 수 있어요" : left > 0 ? `${left}초 후 다시 보내기` : `코드 다시 보내기 (${RESEND_MAX - resent}회 남음)`}
           </button>
         </div>
         {DEMO && <p className="mt-3 text-xs text-muted">데모 인증 코드 · {MOCK_VERIFY_CODE}</p>}

@@ -36,18 +36,19 @@ export default function NewLecture() {
 
         <div className="mt-6 space-y-4">
           <Field label="강연명" error={touched && !title.trim() ? "강연명을 입력해 주세요." : undefined}>
-            <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 인공지능 개론 8주차 · GPT" maxLength={40} />
+            <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 인공지능 개론 8주차 · GPT" maxLength={100} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="날짜">
+            <Field label="날짜" error={touched && !date ? "날짜를 골라 주세요." : undefined}>
               <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
             </Field>
-            <Field label="시작 시각">
+            <Field label="시작 시각" error={touched && !time ? "시작 시각을 골라 주세요." : undefined}>
               <input type="time" className={inputCls} value={time} onChange={(e) => setTime(e.target.value)} />
             </Field>
           </div>
-          <Field label="설명 (선택)" hint="청중 입장 화면에 보여요">
-            <textarea className={`${inputCls} resize-none`} rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="이번 강연에서 다룰 내용" />
+          <p className="-mt-2 text-xs text-muted">예정 시각이 돼도 자동으로 시작하지 않아요. 시작 전에는 언제든 고칠 수 있어요.</p>
+          <Field label="설명 (선택)" hint="청중 입장 화면에 보여요 · 500자 이내">
+            <textarea className={`${inputCls} resize-none`} rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={500} placeholder="이번 강연에서 다룰 내용" />
           </Field>
         </div>
 

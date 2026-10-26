@@ -5,7 +5,7 @@ import { AdminTitle, Dot, Panel } from "@/components/admin";
 import { Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, Modal, Pill, Progress, useToast } from "@/components/ui";
-import { LLM_ONLY, baseline, lossCurve, modelVersions, retrainedVersion, rocPoints, servingConfig, targets, trainStages, type ModelVersion } from "@/lib/admin";
+import { LLM_ONLY, baseline, heldReasonText, inferenceTarget, lossCurve, modelVersions, retrainedVersion, rocPoints, servingConfig, targets, trainStages, type ModelVersion } from "@/lib/admin";
 import { DEMO } from "@/lib/demo";
 import { setDemo, useDemo } from "@/lib/store";
 
@@ -18,7 +18,7 @@ function gate(v: ModelVersion, serving: ModelVersion) {
   return reasons;
 }
 
-const servingName = (id: string) => (id === LLM_ONLY ? "LLM_ONLY (Sonnet 단독 판정)" : `판정 모델 ${id}`);
+const servingName = (id: string) => (id === LLM_ONLY ? "LLM_ONLY (Sonnet 단독 판정)" : id);
 
 export default function AdminModels() {
   const { servingVersion, retrained, mergedLabels, servedVersions } = useDemo();
@@ -119,7 +119,7 @@ export default function AdminModels() {
       <Panel
         className="mt-3"
         title="서빙 설정"
-        desc={`추론 경로: ${servingConfig.route} · 장애 시 ${servingConfig.fallback} → LLM_ONLY`}
+        desc={`추론 경로: ${servingConfig.route} · 판정 응답이 ${servingConfig.timeoutMs}ms를 넘기거나 실패하면 그 질문만 LLM_ONLY로 판정`}
         action={
           DEMO && (
             <button onClick={() => setConnected((c) => !c)} className="text-xs text-muted underline underline-offset-4">
@@ -181,7 +181,8 @@ export default function AdminModels() {
                     <p className="flex items-center gap-1.5 font-bold text-coral-ink">
                       <Icon name="lock" size={15} /> HELD · 등록 보류
                     </p>
-                    <p className="mt-1 text-xs text-ink/70">{retrainedVersion.held}</p>
+                    <p className="mt-1 text-xs font-semibold text-ink/80">{heldReasonText[retrainedVersion.held.reason]}</p>
+                    <p className="mt-0.5 text-xs text-ink/70">{retrainedVersion.held.detail}</p>
                   </div>
                 )}
                 <LossChart upto={lossCurve.length} />
@@ -233,7 +234,7 @@ export default function AdminModels() {
             <Metric label="ROC-AUC" value={sel.auc.toFixed(2)} target={`목표 ${targets.auc} 이상`} ok={sel.auc >= targets.auc} />
             <Metric label="오답 즉답률" value={`${sel.wrongRate}%`} target={`목표 ${targets.wrongRate}% 이하`} ok={sel.wrongRate <= targets.wrongRate} />
             <Metric label="AI 처리율" value={`${sel.aiRate}%`} target={`목표 ${targets.aiRate}% 이상`} ok={sel.aiRate >= targets.aiRate} />
-            <Metric label="판정 지연 p50" value={`${sel.latency}ms`} target={`LLM_ONLY ${baseline.latency}ms`} ok />
+            <Metric label="추론 p95" value={`${sel.latency}ms`} target={`목표 ${inferenceTarget}ms 이하`} ok={sel.latency <= inferenceTarget} />
           </div>
 
           <div className="grid gap-3 md:grid-cols-[1fr_1.1fr]">
@@ -269,7 +270,7 @@ export default function AdminModels() {
                   <Row label="ROC-AUC" a={sel.auc} b={compareTo.auc} c={baseline.auc} fmt={(n) => n.toFixed(2)} higher />
                   <Row label="오답 즉답률" a={sel.wrongRate} b={compareTo.wrongRate} c={baseline.wrongRate} fmt={(n) => `${n}%`} />
                   <Row label="AI 처리율" a={sel.aiRate} b={compareTo.aiRate} c={baseline.aiRate} fmt={(n) => `${n}%`} higher />
-                  <Row label="판정 지연" a={sel.latency} b={compareTo.latency} c={baseline.latency} fmt={(n) => `${n}ms`} />
+                  <Row label="추론 p95" a={sel.latency} b={compareTo.latency} c={baseline.latency} fmt={(n) => `${n}ms`} />
                 </tbody>
               </table>
               <p className="mt-2 text-right text-[11px] text-muted">
@@ -286,7 +287,8 @@ export default function AdminModels() {
                     <p className="flex items-center gap-2 font-bold text-coral-ink">
                       <Icon name="lock" size={16} /> HELD · 전환할 수 없어요
                     </p>
-                    <p className="mt-1.5 text-xs text-ink/70">{sel.held}</p>
+                    <p className="mt-1.5 text-xs font-semibold text-ink/80">{heldReasonText[sel.held.reason]}</p>
+                    <p className="mt-0.5 text-xs text-ink/70">{sel.held.detail}</p>
                   </div>
                 ) : everServed(sel.id) ? (
                   <div>
@@ -361,7 +363,7 @@ export default function AdminModels() {
             return (
               <button key={id} onClick={() => switchTo(id, "rollback")} className="flex w-full items-center justify-between gap-3 rounded-[18px] bg-white p-4 text-left hover:bg-white/70">
                 <span>
-                  <span className="font-bold">판정 모델 {v.id}</span>
+                  <span className="font-bold">{v.id}</span>
                   <span className="block text-xs text-muted">
                     AUC {v.auc.toFixed(2)} · 오답 즉답률 {v.wrongRate}%
                   </span>

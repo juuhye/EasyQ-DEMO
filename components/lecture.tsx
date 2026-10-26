@@ -163,7 +163,7 @@ export function TeachingFiles({ initial, canUpload, canDelete }: { initial: Deck
                         inputRef.current?.click();
                       }}
                     >
-                      다른 파일로 교체
+                      파일 교체
                     </Button>
                   </>
                 )}

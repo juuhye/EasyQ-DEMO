@@ -64,18 +64,40 @@ let state: DemoState = {
   joinedCode: null,
   deletedQuestions: [],
   admin: null,
-  servingVersion: "v1.1",
+  servingVersion: "judge-v2",
   retrained: false,
   labelDecisions: {},
   mergedLabels: 0,
-  servedVersions: ["v1.0", "v1.1"],
+  servedVersions: ["judge-v1", "judge-v2"],
 };
 
 const listeners = new Set<() => void>();
 
 export function setDemo(patch: Partial<DemoState> | ((s: DemoState) => Partial<DemoState>)) {
+  const prev = state;
   state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) };
+  if (prev.authed !== state.authed || prev.name !== state.name || prev.loginAt !== state.loginAt) saveMember();
   listeners.forEach((l) => l());
+}
+
+// 회원 로그인 상태도 새로고침 뒤 복구한다. 실제 서비스에서는 앱이 뜰 때 CSRF 토큰 발급(API-06) → GET /me(API-09) 순서로
+// 서버 세션을 확인하고, CSRF 토큰은 메모리에만 둔다. 데모에서는 표시명과 로그인 시각만 탭 단위로 남긴다
+const MEMBER_KEY = "easyq-member";
+
+function saveMember() {
+  try {
+    if (state.authed) sessionStorage.setItem(MEMBER_KEY, JSON.stringify({ name: state.name, loginAt: state.loginAt }));
+    else sessionStorage.removeItem(MEMBER_KEY);
+  } catch {}
+}
+
+export function restoreMember() {
+  try {
+    const saved = sessionStorage.getItem(MEMBER_KEY);
+    if (!saved || state.authed) return;
+    const { name, loginAt } = JSON.parse(saved) as { name: string; loginAt: number };
+    setDemo({ authed: true, name, loginAt });
+  } catch {}
 }
 
 // 관리자 로그인은 새로고침해도 풀리지 않도록 sessionStorage에 남긴다

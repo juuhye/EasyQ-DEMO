@@ -8,15 +8,15 @@ import { NoteModal } from "@/components/NoteModal";
 import { SummaryNote } from "@/components/SummaryNote";
 import { SourceChips } from "@/components/SourceChips";
 import { Button, Empty, Modal, RoundButton, Screen, Tabs, TopBar, useToast } from "@/components/ui";
-import { ORIGINAL_KEEP_DAYS, archiveWith, daysSince } from "@/lib/mock";
+import { ORIGINAL_KEEP_DAYS, archive, daysSince } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 export default function ArchiveDetail() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const { endedLectures, memos } = useDemo();
-  const item = archiveWith(endedLectures).find((a) => a.id === id);
+  const { memos } = useDemo();
+  const item = archive.find((a) => a.id === id);
   const [tab, setTab] = useState<"note" | "mine" | "all">("note");
   const [questions, setQuestions] = useState(item?.myQuestions ?? []);
   const [summary, setSummary] = useState(item?.summary ?? "none");
@@ -95,7 +95,7 @@ export default function ArchiveDetail() {
             ) : summary === "generating" ? (
               <Empty emoji="✍️" title="요약 노트를 만드는 중이에요" desc="강연 발화와 교안을 읽고 있어요. 완성되면 여기에 바로 보여드릴게요." />
             ) : summary === "failed" ? (
-              <Empty emoji="⚠️" title="요약 노트를 만들지 못했어요" desc="잠시 뒤 자동으로 다시 만들어요. 완성되면 여기에 보여드릴게요." />
+              <Empty emoji="⚠️" title="요약 노트가 만들어지지 않았어요" desc="요약 노트 생성에 실패했어요." />
             ) : (
               <Empty emoji="🫙" title="요약 노트가 만들어지지 않았어요" desc="강연 발화가 너무 짧으면 요약 노트를 만들지 않아요." />
             )}

@@ -231,7 +231,7 @@ export default function LiveDashboard() {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat label="대기 중 질문" value={waiting.length} color="#f4625a" emoji="🙋" />
           <Stat label="AI가 답한 질문" value={ai.filter((a) => !a.retracted).length} color="#3dbf6e" emoji="✨" />
-          <Stat label="AI 처리율" value={`${aiRate}%`} color="#3a82f7" emoji="📊" />
+          <Stat label="AI 답변 비중" value={`${aiRate}%`} color="#3a82f7" emoji="📊" />
           <Stat label="받은 공감" value={qs.reduce((s, q) => s + q.likes, 0)} color="#ffc830" emoji="💛" />
         </div>
 
@@ -471,7 +471,7 @@ export default function LiveDashboard() {
         </div>
         <label className="mt-4 block">
           <span className="text-sm font-semibold text-ink/70">상세 사유 (선택)</span>
-          <textarea className={`${inputCls} mt-2 h-20 resize-none text-sm`} value={retractDetail} onChange={(e) => setRetractDetail(e.target.value)} maxLength={200} placeholder="어떤 점이 틀렸는지 적어 주면 판정 모델 개선에 쓰여요" />
+          <textarea className={`${inputCls} mt-2 h-20 resize-none text-sm`} value={retractDetail} onChange={(e) => setRetractDetail(e.target.value)} maxLength={500} placeholder="어떤 점이 틀렸는지 적어 주면 판정 모델 개선에 쓰여요" />
         </label>
         <p className="mt-3 text-xs leading-relaxed text-muted">질문자 화면에서 답변이 가려지고 “강연자가 직접 설명합니다”로 바뀌어요. 질문은 공개 목록으로 옮겨지고, 철회한 답변은 판정 모델 재학습 데이터로 쓰여요.</p>
         <div className="mt-6 flex gap-2">

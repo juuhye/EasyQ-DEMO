@@ -6,7 +6,7 @@ import { Bubble, Sticker } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { Button, PageTitle, Screen, StatusPill, TopBar, inputCls } from "@/components/ui";
 import { DEMO } from "@/lib/demo";
-import { LEARN_CONSENT_TEXT, SESSION_CAPACITY, archiveHrefFor, resolveCode, statusOf, type Lecture, type LectureStatus } from "@/lib/mock";
+import { LEARN_CONSENT_TEXT, SESSION_CAPACITY, me, archiveHrefFor, resolveCode, statusOf, type Lecture, type LectureStatus } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 // QR → 회원 / 게스트 선택 → (로그인) 또는 (닉네임 · 동의) → 강연 상태에 따라 대기 · 질문 · 종료 화면
@@ -15,6 +15,7 @@ type Step = "code" | "who" | "guest";
 
 // 게스트 닉네임 1~20자
 const NICK_MAX = 20;
+const MAX_FAILS = 5;
 
 // useSearchParams는 Suspense 안에서만 쓸 수 있다
 export default function JoinPage() {
@@ -29,13 +30,14 @@ function Join() {
   const router = useRouter();
   const { name, authed, endedLectures, startedLectures, codes } = useDemo();
 
-  // 입장 코드 검사. 들어갈 수 없으면 error를 돌려준다
+  // 입장 코드 검사(API-18). 들어갈 수 없으면 error를 돌려준다
+  // 404 JOIN_CODE_INVALID · 410 JOIN_CODE_REVOKED(재발급된 이전 QR) · SESSION_FULL(정원 초과)
   function evaluate(c: string): { lecture: Lecture | null; error: string } {
     const { lecture: l, expired } = resolveCode(c, codes);
     if (!l) return { lecture: null, error: "입장 코드를 찾을 수 없어요. 다시 확인해 주세요." };
     if (expired) return { lecture: null, error: "재발급돼서 더 이상 쓸 수 없는 코드예요. 강연장 화면의 새 코드를 입력해 주세요." };
     // 시작 전(대기 화면) · 종료(보관함 또는 종료 안내)도 입장 절차는 같고, 들어간 뒤 상태별 화면이 나뉜다
-    if (statusOf(l, endedLectures, startedLectures) === "live" && l.audience >= SESSION_CAPACITY) return { lecture: null, error: `정원(${SESSION_CAPACITY}명)이 다 찬 강연이에요. 자리가 나면 다시 들어와 주세요.` };
+    if (statusOf(l, endedLectures, startedLectures) === "live" && l.audience >= SESSION_CAPACITY) return { lecture: null, error: `정원(${SESSION_CAPACITY}명)이 가득 찬 강연이에요. 자리가 나면 다시 들어와 주세요.` };
     return { lecture: l, error: "" };
   }
 
@@ -51,9 +53,16 @@ function Join() {
   const [nick, setNick] = useState("");
   const [scanning, setScanning] = useState(false);
 
+  // 잘못된 코드를 여러 번 넣으면 잠시 막는다 (429)
+  const [fails, setFails] = useState(0);
+
   function check(c: string) {
+    if (fails >= MAX_FAILS) return setError("입장 코드 입력 횟수를 넘었어요. 잠시 후 다시 시도해 주세요.");
     const r = evaluate(c);
-    if (!r.lecture) return setError(r.error);
+    if (!r.lecture) {
+      if (r.error.startsWith("입장 코드를 찾을 수 없어요")) setFails((n) => n + 1);
+      return setError(r.error);
+    }
     setLecture(r.lecture);
     setStep("who");
   }
@@ -75,7 +84,7 @@ function Join() {
     const current = codes[lecture.id] ?? lecture.code;
     setDemo({ guestName: asGuest ? nick.trim() : null, joinedCode: current });
     if (!asGuest && !authed) return router.push(`/login?next=${encodeURIComponent(`/live/${current}`)}`);
-    if (!asGuest && statusOf(lecture, endedLectures, startedLectures) === "ended") return router.push(archiveHrefFor(lecture.id, endedLectures));
+    if (!asGuest && statusOf(lecture, endedLectures, startedLectures) === "ended") return router.push(archiveHrefFor(lecture.id));
     router.push(`/live/${current}`);
   }
 
@@ -139,7 +148,7 @@ function Join() {
               </p>
             )}
           </form>
-          {DEMO && <p className="mt-4 text-xs leading-relaxed text-muted">예시 코드 · QX7K2 진행 중 · DB4M8 시작 전 · SU3M7 종료</p>}
+          {DEMO && <p className="mt-4 text-xs leading-relaxed text-muted">예시 코드 · QX7K2 진행 중 · DB4M8 시작 전 · SU3M7 종료 · MK4P2 정원 초과</p>}
         </div>
       )}
 
@@ -259,9 +268,13 @@ function LectureCard({ lecture, status }: { lecture: Lecture; status: LectureSta
         <div className="min-w-0 flex-1">
           <StatusPill status={status} onColor />
           <p className="mt-2.5 text-[22px] font-extrabold leading-tight tracking-[-0.04em]">{lecture.title}</p>
+          {/* 강연 확인 (API-18): 강연명 · 강연자 · 예정 일시 · 설명 · 정원 */}
           <p className="mt-1 text-sm text-ink/60">
-            {lecture.date} {lecture.time}
-            {status === "live" && ` · ${lecture.audience}명 참여 중`}
+            {lecture.host ?? me.name} · {lecture.date} {lecture.time}
+          </p>
+          {lecture.desc && <p className="mt-1.5 text-sm text-ink/75">{lecture.desc}</p>}
+          <p className="mt-1.5 text-xs font-semibold text-ink/55">
+            정원 {SESSION_CAPACITY}명{status === "live" && ` · ${lecture.audience}명 참여 중`}
           </p>
         </div>
         <Sticker size={44} rotate={10}>

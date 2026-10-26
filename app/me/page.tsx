@@ -6,7 +6,7 @@ import { Avatar, Sticker } from "@/components/Brand";
 import { Icon, type IconName } from "@/components/Icon";
 import { Button, Field, Modal, Screen, inputCls, useToast } from "@/components/ui";
 import { MOCK_PASSWORD, pwValid } from "@/lib/auth";
-import { LEARN_CONSENT_TEXT, archiveWith, inquiries, lectures, me, notices, statusOf } from "@/lib/mock";
+import { LEARN_CONSENT_TEXT, archive, inquiries, lectures, me, notices, statusOf } from "@/lib/mock";
 import { setDemo, useDemo } from "@/lib/store";
 
 type Sheet = null | "name" | "pw" | "consent" | "notice" | "inquiry" | "reauth" | "leave";
@@ -18,7 +18,7 @@ export default function Me() {
   const router = useRouter();
   const toast = useToast();
   const { name, consent, loginAt, signup, endedLectures, startedLectures, deletedArchives, deletedLectures } = useDemo();
-  const myArchive = archiveWith(endedLectures).filter((a) => !deletedArchives.includes(a.id));
+  const myArchive = archive.filter((a) => !deletedArchives.includes(a.id));
   const [sheet, setSheet] = useState<Sheet>(null);
   const [draftName, setDraftName] = useState(name);
   const [pw, setPw] = useState({ cur: "", next: "" });
@@ -92,7 +92,7 @@ export default function Me() {
 
       {/* 표시명 */}
       <Modal open={sheet === "name"} onClose={() => setSheet(null)} title="표시명 변경">
-        <input className={inputCls} value={draftName} onChange={(e) => setDraftName(e.target.value)} maxLength={12} />
+        <input className={inputCls} value={draftName} onChange={(e) => setDraftName(e.target.value)} maxLength={50} />
         <Button
           className="mt-4 w-full"
           disabled={!draftName.trim()}
@@ -152,7 +152,7 @@ export default function Me() {
           <Field label="현재 비밀번호" error={pwError}>
             <input type="password" className={inputCls} value={pw.cur} onChange={(e) => setPw({ ...pw, cur: e.target.value })} />
           </Field>
-          <Field label="새 비밀번호" hint="8자 이상, 영문 · 숫자 포함">
+          <Field label="새 비밀번호" hint="8~20자, 영문 · 숫자 포함">
             <input type="password" className={inputCls} value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
           </Field>
         </div>
@@ -203,8 +203,8 @@ export default function Me() {
           ))}
         </div>
         <div className="mt-4 space-y-2">
-          <input className={inputCls} placeholder="문의 제목" value={inq.title} onChange={(e) => setInq({ ...inq, title: e.target.value })} />
-          <textarea className={`${inputCls} resize-none`} rows={3} placeholder="어떤 점이 궁금하신가요?" value={inq.body} onChange={(e) => setInq({ ...inq, body: e.target.value })} />
+          <input className={inputCls} placeholder="문의 제목 (100자 이내)" value={inq.title} onChange={(e) => setInq({ ...inq, title: e.target.value })} maxLength={100} />
+          <textarea className={`${inputCls} resize-none`} rows={3} placeholder="어떤 점이 궁금하신가요? (2,000자 이내)" maxLength={2000} value={inq.body} onChange={(e) => setInq({ ...inq, body: e.target.value })} />
         </div>
         <Button
           className="mt-3 w-full"
@@ -265,7 +265,7 @@ export default function Me() {
           {hasLive && (
             <p className="mt-3 flex items-center gap-1.5 rounded-2xl bg-coral/20 px-3 py-2.5 text-left text-sm">
               <Icon name="alert" size={16} className="shrink-0" />
-              진행 중인 강연이 있어요. 강연을 먼저 종료해야 탈퇴할 수 있어요.
+              진행 중인 강연을 먼저 종료해 주세요
             </p>
           )}
         </div>

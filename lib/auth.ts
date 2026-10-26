@@ -48,13 +48,14 @@ export async function login(rawEmail: string, pw: string, role: "user" | "admin"
   const member = members.find((m) => m.email === email);
   if (!member || pw !== MOCK_PASSWORD) return wrong;
   if (member.status === "unverified") return { ok: false, field: "form", message: unverifiedMessage, unverified: true };
-  if (member.status === "suspended") return { ok: false, field: "form", message: `이용이 정지된 계정이에요. 사유: ${member.suspendReason ?? "운영 정책 위반"}` };
+  if (member.status === "suspended") return { ok: false, field: "form", message: `이용이 정지된 계정이에요. 사유: ${member.suspensionReason ?? "운영 정책 위반"}` };
   return { ok: true, name: member.name, email };
 }
 
-// 비밀번호 규칙 (가입 · 재설정 · 변경 공통)
+// 비밀번호 규칙 (가입 · 재설정 · 변경 공통): 8~20자, 영문 · 숫자 각 1자 이상
+export const PW_MAX = 20;
 export const pwRules = [
-  { label: "8자 이상", test: (p: string) => p.length >= 8 },
+  { label: "8~20자", test: (p: string) => p.length >= 8 && p.length <= PW_MAX },
   { label: "영문 포함", test: (p: string) => /[a-zA-Z]/.test(p) },
   { label: "숫자 포함", test: (p: string) => /\d/.test(p) },
 ];
